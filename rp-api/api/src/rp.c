@@ -1357,6 +1357,12 @@ int rp_GenDutyCycle(rp_channel_t channel, float ratio) {
     return gen_setDutyCycle(channel, ratio);
 }
 
+int rp_GenGetDutyCycle(rp_channel_t channel, float *ratio) {
+    if (!rp_HPIsFastDAC_PresentOrDefault())
+        return RP_NOTS;
+    return gen_getDutyCycle(channel, ratio);
+}
+
 int rp_GenRiseTime(rp_channel_t channel, float time) {
     if (!rp_HPIsFastDAC_PresentOrDefault())
         return RP_NOTS;
@@ -1379,12 +1385,6 @@ int rp_GenGetFallTime(rp_channel_t channel, float *time){
 if (!rp_HPIsFastDAC_PresentOrDefault())
         return RP_NOTS;
     return gen_getFallTime(channel, time);
-}
-
-int rp_GenGetDutyCycle(rp_channel_t channel, float *ratio) {
-    if (!rp_HPIsFastDAC_PresentOrDefault())
-        return RP_NOTS;
-    return gen_getDutyCycle(channel, ratio);
 }
 
 int rp_GenMode(rp_channel_t channel, rp_gen_mode_t mode) {
