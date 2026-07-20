@@ -402,46 +402,39 @@ def test_16bit_mode():
     res = rp.rp_AcqGet16BitMode()
     print(res)
 
-def test_waveform_data():
-    print("Testing waveform data functions")
-
-    print("rp.rp_GetWaveformDataV(rp.RP_CH_1)")
-    res = rp.rp_GetWaveformDataV(rp.RP_CH_1)
-    print(res)
-
 def test_acquisition_int_mask():
     print("Testing interrupt mask functions")
 
-    print("rp.rp_AcqSetIntMask(rp.RP_INT_MODE_TRIGGER, True)")
-    res = rp.rp_AcqSetIntMask(rp.RP_INT_MODE_TRIGGER, True)
+    print("rp.rp_AcqSetIntMask(rp.RP_INT_TRIGGER, True)")
+    res = rp.rp_AcqSetIntMask(rp.RP_INT_TRIGGER, True)
     print(res)
 
-    print("rp.rp_AcqGetIntMask(rp.RP_INT_MODE_TRIGGER)")
-    res = rp.rp_AcqGetIntMask(rp.RP_INT_MODE_TRIGGER)
+    print("rp.rp_AcqGetIntMask(rp.RP_INT_TRIGGER)")
+    res = rp.rp_AcqGetIntMask(rp.RP_INT_TRIGGER)
     print(res)
 
-    print("rp.rp_AcqSetIntMask(rp.RP_INT_MODE_FILL, False)")
-    res = rp.rp_AcqSetIntMask(rp.RP_INT_MODE_FILL, False)
+    print("rp.rp_AcqSetIntMask(rp.RP_INT_FILL, False)")
+    res = rp.rp_AcqSetIntMask(rp.RP_INT_FILL, False)
     print(res)
 
-    print("rp.rp_AcqGetIntMask(rp.RP_INT_MODE_FILL)")
-    res = rp.rp_AcqGetIntMask(rp.RP_INT_MODE_FILL)
+    print("rp.rp_AcqGetIntMask(rp.RP_INT_FILL)")
+    res = rp.rp_AcqGetIntMask(rp.RP_INT_FILL)
     print(res)
 
-    print("rp.rp_AcqSetIntMaskCh(rp.RP_CH_1, rp.RP_INT_MODE_TRIGGER, True)")
-    res = rp.rp_AcqSetIntMaskCh(rp.RP_CH_1, rp.RP_INT_MODE_TRIGGER, True)
+    print("rp.rp_AcqSetIntMaskCh(rp.RP_CH_1, rp.RP_INT_TRIGGER, True)")
+    res = rp.rp_AcqSetIntMaskCh(rp.RP_CH_1, rp.RP_INT_TRIGGER, True)
     print(res)
 
-    print("rp.rp_AcqGetIntMaskCh(rp.RP_CH_1, rp.RP_INT_MODE_TRIGGER)")
-    res = rp.rp_AcqGetIntMaskCh(rp.RP_CH_1, rp.RP_INT_MODE_TRIGGER)
+    print("rp.rp_AcqGetIntMaskCh(rp.RP_CH_1, rp.RP_INT_TRIGGER)")
+    res = rp.rp_AcqGetIntMaskCh(rp.RP_CH_1, rp.RP_INT_TRIGGER)
     print(res)
 
-    print("rp.rp_AcqSetIntMaskCh(rp.RP_CH_2, rp.RP_INT_MODE_FILL, True)")
-    res = rp.rp_AcqSetIntMaskCh(rp.RP_CH_2, rp.RP_INT_MODE_FILL, True)
+    print("rp.rp_AcqSetIntMaskCh(rp.RP_CH_2, rp.RP_INT_FILL, True)")
+    res = rp.rp_AcqSetIntMaskCh(rp.RP_CH_2, rp.RP_INT_FILL, True)
     print(res)
 
-    print("rp.rp_AcqGetIntMaskCh(rp.RP_CH_2, rp.RP_INT_MODE_FILL)")
-    res = rp.rp_AcqGetIntMaskCh(rp.RP_CH_2, rp.RP_INT_MODE_FILL)
+    print("rp.rp_AcqGetIntMaskCh(rp.RP_CH_2, rp.RP_INT_FILL)")
+    res = rp.rp_AcqGetIntMaskCh(rp.RP_CH_2, rp.RP_INT_FILL)
     print(res)
 
 if __name__ == "__main__":
@@ -463,5 +456,4 @@ if __name__ == "__main__":
     test_interrupts()
     test_timestamp()
     test_16bit_mode()
-    test_waveform_data()
     test_acquisition_int_mask()

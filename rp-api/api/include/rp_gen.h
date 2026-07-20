@@ -207,11 +207,11 @@ int rp_GenGetWaveform(rp_channel_t channel, rp_waveform_t* type);
  * Provides access to the vector containing the voltage samples for the specified channel.
  *
  * @param channel Channel A or B for which we want to get the waveform data.
- * @param data Pointer to a constant pointer that will be set to the internal vector of float samples.
+ * @param data_waveform Pointer to a constant pointer that will be set to the internal vector of float samples.
  * @return If the function is successful, the return value is RP_OK.
  * If the function is unsuccessful, the return value is any of RP_E* values that indicate an error.
  */
-int rp_GetWaveformDataV(rp_channel_t channel, const std::vector<float>** data);
+int rp_GenGetWaveformDataV(rp_channel_t channel, const std::vector<float>** data_waveform);
 
 /**
 * Sets the generation mode for the sweep signal.

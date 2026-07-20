@@ -2823,7 +2823,7 @@ int rp_GenGetWaveform(rp_channel_t channel, rp_waveform_t* type) {
     return gen_getWaveform(channel, type);
 }
 
-int rp_GetWaveformDataV(rp_channel_t channel, const std::vector<float>** data) {
+int rp_GenGetWaveformDataV(rp_channel_t channel, const std::vector<float>** data) {
     if (!rp_HPIsFastDAC_PresentOrDefault())
         return RP_NOTS;
     std::shared_lock lock(g_initMutex);

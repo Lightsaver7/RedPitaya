@@ -108,11 +108,20 @@ int rp_AcqAxiGetWritePointer(rp_channel_t channel, uint32_t* pos);
 int rp_AcqAxiGetWritePointerAtTrig(rp_channel_t channel, uint32_t* pos);
 
 /**
- * Get reserved memory for DMA mode
- * @param channel Channel index
- * @param enable Enable state
- * @return If the function is successful, the return value is RP_OK.
- * If the function is unsuccessful, the return value is any of RP_E* values that indicate an error.
+ * Get reserved memory region for DMA mode
+ *
+ * This function retrieves the start address and size of the memory region
+ * reserved for DMA operations on the acquisition channel.
+ *
+ * @param[out] _start Pointer to variable that will receive the start address
+ *                    of the reserved memory region.
+ * @param[out] _size  Pointer to variable that will receive the size (in bytes)
+ *                    of the reserved memory region.
+ *
+ * @return RP_OK on success, or an RP_E* error code on failure.
+ *
+ * @note Both parameters must be valid pointers. The function does not allocate
+ *       or free memory, it only retrieves the current region parameters.
  */
 int rp_AcqAxiGetMemoryRegion(uint32_t* _start, uint32_t* _size);
 

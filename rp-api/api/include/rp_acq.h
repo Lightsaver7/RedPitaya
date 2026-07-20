@@ -1114,11 +1114,11 @@ int rp_AcqGetLatestDataVNP(rp_channel_t channel, float* np_buffer, int size);
 /**
  * Returns the ADC buffer size in samples.
  *
- * @param size Size of the ADC buffer in samples.
+ * @param _size Size of the ADC buffer in samples.
  * @return If the function is successful, the return value is RP_OK.
  * If the function is unsuccessful, the return value is any of RP_E* values that indicate an error.
  */
-int rp_AcqGetBufSize(uint32_t* size);
+int rp_AcqGetBufSize(uint32_t* _size);
 
 /**
 * The function enables or disables the filter in the FPGA.

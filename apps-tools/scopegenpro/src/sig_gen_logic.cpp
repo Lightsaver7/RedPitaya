@@ -203,7 +203,7 @@ auto generate(rp_channel_t channel, float tscale) -> void {
     } else {
         if (waveform_api != RP_WAVEFORM_NOISE) {
             const std::vector<float>* data = nullptr;
-            rp_GetWaveformDataV(channel, &data);
+            rp_GenGetWaveformDataV(channel, &data);
             if (data != nullptr) {
                 settings.arb_size = data->size();
                 if (oldSettings[channel] != settings) {

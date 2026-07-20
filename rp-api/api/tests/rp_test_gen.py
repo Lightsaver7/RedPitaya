@@ -320,6 +320,14 @@ def test_runtime_temp():
     res = rp.rp_GetRuntimeTempAlarm(rp.RP_CH_1)
     print(res)
 
+def test_waveform_data():
+    print("Testing waveform data functions")
+
+    print("rp.rp_GenGetWaveformDataV(rp.RP_CH_1)")
+    res = rp.rp_GenGetWaveformDataV(rp.RP_CH_1)
+    print(res)
+
+
 if __name__ == "__main__":
     init_rp()
     test_generator_basic()
@@ -333,3 +341,4 @@ if __name__ == "__main__":
     test_generator_triggers()
     test_generator_protection()
     test_runtime_temp()
+    test_waveform_data()

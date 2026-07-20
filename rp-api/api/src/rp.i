@@ -61,10 +61,12 @@
 %apply float *OUTPUT { float *ratio };
 %apply float *OUTPUT { float *time };
 %apply float *OUTPUT { float *sampling_rate };
+%apply float *OUTPUT { float *period };
 
 %apply float *INOUT { float *waveform };
 
 %apply double *OUTPUT { double *value };
+%apply double *OUTPUT { double *period };
 
 %apply int16_t *INOUT { int16_t *buffer };
 %apply float *INOUT { float *buffer };
@@ -85,6 +87,7 @@
 %apply unsigned int *OUTPUT { uint32_t *_start };
 %apply unsigned int *OUTPUT { uint32_t *_size };
 %apply unsigned int *OUTPUT { uint32_t *size_out };
+%apply unsigned int *OUTPUT { uint32_t *ticks };
 
 %apply unsigned int *INOUT { uint32_t *size };
 %apply unsigned int *INOUT { uint32_t *buffer_size };
@@ -136,6 +139,31 @@
 %init %{
 import_array();
 %}
+
+%typemap(in, numinputs=0) const std::vector<float>** data_waveform (std::vector<float>* temp_ptr = NULL) {
+  $1 = &temp_ptr;
+}
+
+%typemap(argout) const std::vector<float>** data_waveform {
+  std::vector<float>* vec = *$1;
+
+  if (vec != NULL && !vec->empty()) {
+    npy_intp size = vec->size();
+
+    PyObject* numpy_array = PyArray_SimpleNewFromData(1, &size, NPY_FLOAT, (void*)vec->data());
+
+    if (numpy_array == NULL) {
+      PyErr_SetString(PyExc_RuntimeError, "Failed to create numpy array from C++ waveform data");
+      SWIG_fail;
+    }
+    $result = SWIG_Python_AppendOutput($result, numpy_array);
+  } else {
+    Py_INCREF(Py_None);
+    $result = SWIG_Python_AppendOutput($result, Py_None);
+  }
+}
+
+%apply const std::vector<float>** data_waveform { const std::vector<float>** data_waveform };
 
 %pointer_functions(buffers_t, p_buffers_t);
 

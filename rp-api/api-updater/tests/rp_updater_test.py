@@ -22,8 +22,8 @@ class Callback(CUpdaterCallback):
         print("Install ",i, " / ",total, fileName)
 
 
-print("rp_UpdaterDownloadFile('https://downloads.redpitaya.com/downloads/Unify/nightly_builds/ecosystem-2.06-488-a5718bfe42!.zip')")
-res = rp_UpdaterDownloadFile('https://downloads.redpitaya.com/downloads/Unify/nightly_builds/ecosystem-2.06-488-a5718bfe42!.zip')
+print("rp_UpdaterDownloadFile('https://downloads.redpitaya.com/downloads/Unify/nightly_builds/ecosystem-3.00-812-6f82bf9e7!.zip')")
+res = rp_UpdaterDownloadFile('https://downloads.redpitaya.com/downloads/Unify/nightly_builds/ecosystem-3.00-812-6f82bf9e7!.zip')
 print(res)
 
 callback = Callback()

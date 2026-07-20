@@ -1575,8 +1575,8 @@ int acq_SetDefault(rp_channel_t channel) {
     acq_SetTriggerSrc(channel, RP_TRIG_SRC_DISABLED);
     acq_SetArmKeep(channel, false);
 
-    acq_SetDecimation(channel, RP_DEC_1);
     acq_SetTriggerDelay(channel, 0);
+    acq_SetDecimation(channel, RP_DEC_1);
     acq_SetChannelThreshold(channel, 0.0);
     acq_SetChannelThresholdHyst(channel, 0.005);
     acq_SetGain(channel, RP_LOW);

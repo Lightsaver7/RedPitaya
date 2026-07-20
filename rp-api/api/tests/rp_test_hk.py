@@ -46,6 +46,8 @@ def test_basic_functions():
     res = rp.rp_IdGetDNA()
     print(res)
 
+
+def test_release():
     print("rp.rp_Release()")
     res = rp.rp_Release()
     print(res)
@@ -209,3 +211,4 @@ if __name__ == "__main__":
     test_freq_sync()
     test_registers()
     test_pll_triggers()
+    test_release()
