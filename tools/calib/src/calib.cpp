@@ -138,50 +138,55 @@ int WriteCalib(rp_HPeModels_t model, bool factory, bool is_new, bool is_modify) 
         return -1;
     }
 
-    int calibSize = 0;
-    if (!is_modify) {
+    try {
+        int calibSize = 0;
+        if (!is_modify) {
 
-        calibSize = is_new ? MAX_UNIVERSAL_ITEMS_COUNT : getCalibSize(model);
-        if (calibSize < 0)
-            return -1;
+            calibSize = is_new ? MAX_UNIVERSAL_ITEMS_COUNT : getCalibSize(model);
+            if (calibSize < 0)
+                return -1;
 
-        size_t i = 0;
-        size_t j = 0;
-        for (i = 0; i < in_params.size() && i < (size_t)calibSize; i++, j++) {
-            if (is_new) {
-                new_eeprom.item[j].id = stoi(in_params[i]);
-                i++;
-                new_eeprom.item[j].value = stoi(in_params[i]);
-            } else {
-                eeprom.feCalPar[j] = stoi(in_params[i]);
-            }
-        }
-        new_eeprom.count = j;
-    } else {
-        memcpy(&new_eeprom, buff, size);
-
-        calibSize = is_new ? MAX_UNIVERSAL_ITEMS_COUNT : getCalibSize(model);
-        if (calibSize < 0)
-            return -1;
-
-        size_t i = 0;
-        for (i = 0; i < in_params.size() && i < (size_t)calibSize; i++) {
-            int idx = -1;
-            for (int z = 0; z < new_eeprom.count; z++) {
-                if (new_eeprom.item[z].id == stoi(in_params[i])) {
-                    idx = z;
-                    break;
+            size_t i = 0;
+            size_t j = 0;
+            for (i = 0; i < in_params.size() && i < (size_t)calibSize; i++, j++) {
+                if (is_new) {
+                    new_eeprom.item[j].id = stoi(in_params[i]);
+                    i++;
+                    new_eeprom.item[j].value = stoi(in_params[i]);
+                } else {
+                    eeprom.feCalPar[j] = stoi(in_params[i]);
                 }
             }
-            if (idx == -1) {
-                free(buff);
-                fprintf(stderr, "ERROR: Can't find calibration parameter id = %s\n", in_params[i].c_str());
+            new_eeprom.count = j;
+        } else {
+            memcpy(&new_eeprom, buff, size);
+
+            calibSize = is_new ? MAX_UNIVERSAL_ITEMS_COUNT : getCalibSize(model);
+            if (calibSize < 0)
                 return -1;
+
+            size_t i = 0;
+            for (i = 0; i < in_params.size() && i < (size_t)calibSize; i++) {
+                int idx = -1;
+                for (int z = 0; z < new_eeprom.count; z++) {
+                    if (new_eeprom.item[z].id == stoi(in_params[i])) {
+                        idx = z;
+                        break;
+                    }
+                }
+                if (idx == -1) {
+                    free(buff);
+                    fprintf(stderr, "ERROR: Can't find calibration parameter id = %s\n", in_params[i].c_str());
+                    return -1;
+                }
+                i++;
+                new_eeprom.item[idx].value = stoi(in_params[i]);
+                ;
             }
-            i++;
-            new_eeprom.item[idx].value = stoi(in_params[i]);
-            ;
         }
+    } catch (const std::out_of_range& e) {
+        fprintf(stderr, "ERROR: Error reading calibration parameters\n");
+        return -1;
     }
 #ifdef DEBUG
     // Debug output
