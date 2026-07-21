@@ -247,7 +247,7 @@ auto ClientOpt::usage(char const* progName) -> void {
         "\t\t%s -b -f /root/.streaming_config_new.json\n";
 
     auto n = name.c_str();
-    printWithLog(LOG_INFO, stdout, format, n, n);
+    printWithLog(LOG_INFO, stdout, format, n, n, n);
 }
 
 auto ClientOpt::parse(int argc, char* argv[]) -> ClientOpt::Options {
