@@ -6,8 +6,11 @@ SHELL := /bin/bash
 BUILD_NUMBER ?= dev
 # Required OS version
 LINUX_VER ?= 3.00
+
+# GITLAB,GITHUB,LOCAL
 GIT_MODE ?= GITHUB
 GITLAB_TOKEN ?= NONE
+GIT_LOCAL_PATH ?=NONE
 
 SDR_ZIP ?= SDR-bundle-82-cbecbdd4.zip
 
@@ -306,7 +309,7 @@ fpga: $(INSTALL_DIR)/fpga
 
 
 define build_fpga
-	./download_fpga.sh $(FPGA_VERSION) $(1) $(GIT_MODE) $(5) $(GITLAB_TOKEN) build
+	./download_fpga.sh $(FPGA_VERSION) $(1) $(GIT_MODE) $(5) $(GITLAB_TOKEN) build $(GIT_LOCAL_PATH)
 	mkdir -p $(INSTALL_DIR)/fpga/$(FPGA_VERSION)/$(1)
 	make -C fpga/build PRJ=$(1) MODEL=$(2) DEFINES=$(3) HWID=$(4) DTS_VER=2025.1 FPGA_VERSION=$(FPGA_VERSION)
 
@@ -368,7 +371,7 @@ FSBL_DTS = $(TMP)/fsbl_dts.dtb
 
 fsbl_ub:
 	echo $@
-	./download_fpga.sh all fsbl $(GIT_MODE) $(FPGA_UBOOT) $(GITLAB_TOKEN) fsbl
+	./download_fpga.sh all fsbl $(GIT_MODE) $(FPGA_UBOOT) $(GITLAB_TOKEN) fsbl $(GIT_LOCAL_PATH)
 	make -C fpga/fsbl fsbl MODEL=Z10 RAM=512
 	cp  fpga/fsbl/prj/fsbl/out/fsbl.elf $(FSBL)
 	cp  fpga/fsbl/prj/fsbl/out/devicetree_uboot.dtb $(FSBL_DTS)
@@ -385,7 +388,7 @@ FSBL_DTS_1Gb_ram = $(TMP)/fsbl_dts_1GB_ram.dtb
 
 fsbl_ub_1Gb_ram:
 	echo $@
-	./download_fpga.sh all fsbl_1Gb_ram $(GIT_MODE) $(FPGA_UBOOT) $(GITLAB_TOKEN) fsbl_1Gb_ram
+	./download_fpga.sh all fsbl_1Gb_ram $(GIT_MODE) $(FPGA_UBOOT) $(GITLAB_TOKEN) fsbl_1Gb_ram $(GIT_LOCAL_PATH)
 	make -C fpga/fsbl_1Gb_ram fsbl MODEL=Z20 RAM=1024
 	cp  fpga/fsbl_1Gb_ram/prj/fsbl/out/fsbl.elf $(FSBL_1Gb_ram)
 	cp  fpga/fsbl_1Gb_ram/prj/fsbl/out/devicetree_uboot.dtb $(FSBL_DTS_1Gb_ram)
@@ -494,7 +497,7 @@ endif
 SDR_URL = https://downloads.redpitaya.com/hamlab/sdr-bundle/$(SDR_ZIP)
 
 sdr: | $(DL)
-	wget $(SDR_URL) -O $(DL)/$(SDR_ZIP) --show-progress
+	curl -L "$(SDR_URL)" -o "$(DL)/$(SDR_ZIP)" --progress-bar
 	mkdir -p $(INSTALL_DIR)/www/apps
 	unzip -o $(DL)/$(SDR_ZIP) -d $(INSTALL_DIR)/www/apps
 

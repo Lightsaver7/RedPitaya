@@ -5,13 +5,15 @@ MODE=$3
 COMMIT=$4
 TOKEN=$5
 P=$6
+LOCAL_PATH=$7
+
+git config --global --add safe.directory '*'
 
 if [[ "$MODE" == "GITLAB" ]]
 then
     rm -rf fpga/$P
     mkdir -p fpga/$P
     echo "Download from gitlab $VERSION/$PRJ"
-
     cd fpga/$P
     git clone https://gitlab-ci-token:$TOKEN@gitlab.redpitaya.com/redpitaya-3.0/redpitaya-fpga.git . -b $COMMIT --depth 3
     git checkout $COMMIT
@@ -43,9 +45,9 @@ if [[ "$MODE" == "LOCAL" ]]
 then
     rm -rf fpga/$P
     mkdir -p fpga/$P
-    echo "Clone from local working $VERSION/$PRJ"
+    echo "Clone from local $LOCAL_PATH working $VERSION/$PRJ"
     cd fpga/$P
-    git clone ~/projects/redpitaya2/redpitaya-fpga .
+    git clone $LOCAL_PATH .
     git checkout $COMMIT
     BRANCH=$(git name-rev $COMMIT)
     LOG=$(git log -n 1)

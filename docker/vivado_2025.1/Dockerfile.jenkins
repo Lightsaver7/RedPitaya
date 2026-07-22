@@ -42,8 +42,9 @@ RUN --mount=type=bind,source=vivado_installer,target=/tmp/vivado_installer,rw \
     cd /tmp/vivado_installer && \
     chmod +x xsetup && \
     ./xsetup --agree 3rdPartyEULA,XilinxEULA \
-             --batch Install \
-             --config /tmp/install_config.txt
+    --batch Install \
+    --config /tmp/install_config.txt && \
+    rm -rf /opt/Xilinx/.xinstall 2> /dev/null
 
 # ---- Final stage ----
 FROM ubuntu:24.04
@@ -58,6 +59,61 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     libtinfo6 \
     libstdc++6 \
     libc6-i386 \
+    # Dev
+    make \
+    libudev-dev \
+    gcc \
+    cmake \
+    libusb-1.0-0-dev \
+    libfreetype6 \
+    libfontconfig1 \
+    libxcb-xinerama0 \
+    libxcb-icccm4 \
+    libxcb-image0 \
+    libxcb-keysyms1 \
+    libxcb-randr0 \
+    libxcb-render-util0 \
+    libxcb-shape0 \
+    libxcb-xfixes0 \
+    libxcb-xkb1 \
+    x11-utils \
+    xvfb \
+    xauth \
+    libgtk-3-0 \
+    libcanberra-gtk-module \
+    libcanberra-gtk3-module \
+    libdbus-glib-1-2 \
+    libxt6 \
+    libxmu6 \
+    libxkbcommon-x11-0 \
+    libyaml-dev \
+    libyaml-0-2 \
+    bison \
+    flex \
+    wget \
+    xxd \
+    gcc-arm-linux-gnueabihf \
+    g++-arm-linux-gnueabihf \
+    binutils-arm-linux-gnueabihf \
+    libc6-dev-armhf-cross \
+    libssl-dev \
+    openssl \
+    libgnutls28-dev \
+    gnutls-bin \
+    bc \
+    u-boot-tools \
+    rsync \
+    python3-sphinx \
+    python3-venv \
+    python3-yaml \
+    imagemagick \
+    graphviz \
+    dvipng \
+    latexmk \
+    librsvg2-bin \
+    texlive-lang-chinese \
+    texlive-xetex \
+    fonts-noto-cjk \
     # Jenkins agent requirements
     openjdk-17-jre-headless \
     openssh-server \

@@ -10,7 +10,7 @@ This project provides a Docker image `vivado-jenkins-agent:2025.1` for running a
 
 | File | Purpose |
 |------|---------|
-| `Dockerfile` | Multi-stage image build |
+| `Dockerfile.jenkins` | Multi-stage image build |
 | `install_config.txt` | Vivado installation configuration |
 | `jenkins-agent-setup.sh` | Jenkins agent startup script |
 
@@ -157,26 +157,23 @@ RUN --mount=type=bind,source=vivado_installer,target=/tmp/vivado_installer,rw \
 ### Basic Build
 
 ```bash
-docker build -t vivado-jenkins-agent:2025.1 .
+export DOCKER_BUILDKIT=1
+docker build -t vivado-jenkins-agent:2025.1 -f Dockerfile.jenkins .
 ```
 
 ### Build with Platform Specification
 
 ```bash
 # For AMD64 (x86_64)
-docker build --platform linux/amd64 -t vivado-jenkins-agent:2025.1 .
+export DOCKER_BUILDKIT=1
+docker build --platform linux/amd64 -t vivado-jenkins-agent:2025.1 -f Dockerfile.jenkins .
 ```
 
 ### Build Without Cache (Clean Build)
 
 ```bash
-docker build --no-cache -t vivado-jenkins-agent:2025.1 .
-```
-
-### Build Using BuildKit (Recommended)
-
-```bash
-DOCKER_BUILDKIT=1 docker build -t vivado-jenkins-agent:2025.1 .
+export DOCKER_BUILDKIT=1
+docker build --no-cache -t vivado-jenkins-agent:2025.1 -f Dockerfile.jenkins .
 ```
 
 ---
