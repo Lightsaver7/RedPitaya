@@ -6,7 +6,7 @@ ARG GIT_COMMIT_HASH=unknown
 ARG BUILD_DATE=unknown
 
 LABEL maintainer="dev@redpitaya.com" \
-    description="Qt 6.12.0 development environment with QML support and CQtDeployer" \
+    description="Qt 6.7.3 development environment with QML support and CQtDeployer" \
     git_commit_hash="${GIT_COMMIT_HASH}" \
     build_date="${BUILD_DATE}" \
     version="1.0.0"
@@ -58,6 +58,14 @@ RUN apt-get update && apt-get install -y \
     libicu-dev \
     libwayland-dev \
     wayland-protocols \
+    ninja-build \
+    mingw-w64 \
+    g++-mingw-w64-x86-64 \
+    binutils-mingw-w64-x86-64 \
+    pipx \
+    libglib2.0-0 \
+    ca-certificates \
+    unzip \
     zip \
     file \
     && apt-get clean \
@@ -70,9 +78,21 @@ RUN pipx install aqtinstall
 ENV PATH="/root/.local/bin:${PATH}"
 
 # ============================================
-# Install Qt 6.12.0
+# Install Qt 6.7.3
 # ============================================
-RUN aqt install-qt linux desktop 6.12.0 linux_gcc_64 -O /opt/qt -b https://master.qt.io/ \
+
+RUN aqt install-qt windows desktop 6.7.3 win64_mingw -O /opt/qt -b https://master.qt.io/ \
+    --archives qtbase qtdeclarative qtshadertools qtsvg icu \
+    --modules \
+    qtmultimedia \
+    qtwebsockets \
+    qt5compat \
+    qtcharts \
+    qtscxml \
+    qtquick3d \
+    qtquicktimeline
+
+RUN aqt install-qt linux desktop 6.7.3 linux_gcc_64 -O /opt/qt -b https://master.qt.io/ \
     --archives qtbase qtdeclarative qtshadertools qtsvg icu qtwayland \
     --modules \
     qtmultimedia \
@@ -84,22 +104,13 @@ RUN aqt install-qt linux desktop 6.12.0 linux_gcc_64 -O /opt/qt -b https://maste
 # ============================================
 # Set Qt environment variables
 # ============================================
-ENV QT_DIR=/opt/qt/6.12.0/gcc_64
-ENV PATH="${QT_DIR}/bin:${PATH}"
-ENV LD_LIBRARY_PATH="${QT_DIR}/lib:${LD_LIBRARY_PATH}"
 ENV QT_QPA_PLATFORM=offscreen
-ENV CMAKE_PREFIX_PATH="${QT_DIR}"
-
-# ============================================
-# Verify installation
-# ============================================
-RUN qmake --version
 
 # ============================================
 # Install CQtDeployer v1.6.2365 from source
 # ============================================
 RUN wget -O /tmp/cqtdeployer.deb \
-    https://github.com/QuasarApp/CQtDeployer/releases/download/v1.6.2441.67ee1ef/CQtDeployer_1.6.2441.67ee1ef_Linux_x86_64.deb && \
+    https://downloads.redpitaya.com/tools/CQtDeployer_1.6.2441.67ee1ef_Linux_x86_64.deb && \
     dpkg -i /tmp/cqtdeployer.deb && \
     rm /tmp/cqtdeployer.deb
 
@@ -109,18 +120,15 @@ RUN wget -O /tmp/cqtdeployer.deb \
 ENV GIT_COMMIT_HASH=${GIT_COMMIT_HASH}
 RUN echo "Git commit hash: ${GIT_COMMIT_HASH}" > /etc/build_info.txt && \
     echo "Build date: ${BUILD_DATE}" >> /etc/build_info.txt && \
-    echo "Qt version: 6.12.0" >> /etc/build_info.txt && \
-    echo "CQtDeployer version: 1.6.2365" >> /etc/build_info.txt
-
-# ============================================
-# Verify installation
-# ============================================
-RUN qmake --version && \
-    cqtdeployer v && \
-    cat /etc/build_info.txt
+    echo "Qt version: 6.7.3" >> /etc/build_info.txt && \
+    echo "CQtDeployer version: 1.6.2441.67ee1ef" >> /etc/build_info.txt
 
 # ============================================
 # Set working directory
 # ============================================
+
+RUN git config --global --add safe.directory /workspace
+
 WORKDIR /workspace
+
 CMD ["/bin/bash"]

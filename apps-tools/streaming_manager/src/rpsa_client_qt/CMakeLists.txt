@@ -137,23 +137,35 @@ if(QT_VERSION_MAJOR EQUAL 6)
 endif()
 
 if(IS_INSTALL)
-      install(TARGETS ${PROJECT_NAME}
+
+    install(TARGETS ${PROJECT_NAME}
               DESTINATION ${INSTALL_DIR}/streaming/out/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX})
 
-if(WIN32)
-	set(EXE_EXT ".exe")
-endif()
-    install(CODE "execute_process(COMMAND /usr/bin/cqtdeployer -bin ${INSTALL_DIR}/streaming/out/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX}/rpsa_client_qt${EXE_EXT}
-     -qmake ${QT}/bin/qmake -qmlDir ${QT}/qml
-     -libDir ${QT}/lib/libicui18n.so.73,${QT}/lib/libicuuc.so.73,${QT}/lib/libicudata.so.73
-     -targetDir ${INSTALL_DIR}/streaming/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX})")
-if(WIN32)
-#    install(CODE "execute_process(COMMAND cp /usr/x86_64-w64-mingw32/lib/libwinpthread-1.dll ${INSTALL_DIR}/streaming/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX}/lib/libwinpthread-1.dll)")
-#    install(CODE "execute_process(COMMAND cp -f /usr/lib/gcc/x86_64-w64-mingw32/9.3-posix/*.dll ${INSTALL_DIR}/streaming/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX}/lib/)")
-#    install(FILES /usr/x86_64-w64-mingw32/lib/libwinpthread-1.dll DESTINATION ${INSTALL_DIR}/streaming/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX}/lib/)
-#    install(DIRECTORY /usr/lib/gcc/x86_64-w64-mingw32/9.3-posix/ DESTINATION ${INSTALL_DIR}/streaming/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX}/lib/ FILES_MATCHING PATTERN "*.dll")
-    install(FILES /usr/x86_64-w64-mingw32/lib/libwinpthread-1.dll DESTINATION ${INSTALL_DIR}/streaming/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX}/lib/)
-    install(DIRECTORY /usr/lib/gcc/x86_64-w64-mingw32/12-posix/ DESTINATION ${INSTALL_DIR}/streaming/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX}/lib/ FILES_MATCHING PATTERN "*.dll")
-endif()
+    if(WIN32)
+        set(EXE_EXT ".exe")
+        install(CODE "execute_process(COMMAND /usr/bin/cqtdeployer -bin ${INSTALL_DIR}/streaming/out/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX}/rpsa_client_qt${EXE_EXT}
+            -qmake ${QT}/bin/qmake${EXE_EXT}
+            -qmlDir ${QT}/qml
+            -noCheckPATH true
+            -targetDir ${INSTALL_DIR}/streaming/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX})
+            ")
+    else()
+        install(CODE "execute_process(COMMAND /usr/bin/cqtdeployer -bin ${INSTALL_DIR}/streaming/out/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX}/rpsa_client_qt
+            -qmake ${QT}/bin/qmake
+            -qmlDir ${QT}/qml
+            -noCheckPATH true
+            -libDir ${QT}/lib/libicui18n.so.73,${QT}/lib/libicuuc.so.73,${QT}/lib/libicudata.so.73
+            -targetDir ${INSTALL_DIR}/streaming/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX})
+            ")
+    endif()
+
+    # if(WIN32)
+    #    install(CODE "execute_process(COMMAND cp /usr/x86_64-w64-mingw32/lib/libwinpthread-1.dll ${INSTALL_DIR}/streaming/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX}/lib/libwinpthread-1.dll)")
+    #    install(CODE "execute_process(COMMAND cp -f /usr/lib/gcc/x86_64-w64-mingw32/9.3-posix/*.dll ${INSTALL_DIR}/streaming/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX}/lib/)")
+    #    install(FILES /usr/x86_64-w64-mingw32/lib/libwinpthread-1.dll DESTINATION ${INSTALL_DIR}/streaming/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX}/lib/)
+    #    install(DIRECTORY /usr/lib/gcc/x86_64-w64-mingw32/9.3-posix/ DESTINATION ${INSTALL_DIR}/streaming/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX}/lib/ FILES_MATCHING PATTERN "*.dll")
+    #    install(FILES /usr/x86_64-w64-mingw32/lib/libwinpthread-1.dll DESTINATION ${INSTALL_DIR}/streaming/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX}/lib/)
+    #    install(DIRECTORY /usr/lib/gcc/x86_64-w64-mingw32/12-posix/ DESTINATION ${INSTALL_DIR}/streaming/rpsa_client-qt_${VERSION}-${REVISION}${WIN_SUFFIX}/lib/ FILES_MATCHING PATTERN "*.dll")
+    # endif()
     install(CODE "execute_process(COMMAND rm -rf ${INSTALL_DIR}/streaming/out)")
 endif()
