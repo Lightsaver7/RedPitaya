@@ -564,6 +564,7 @@ gen_report_eco:
 DOCKER_IMAGE ?= rp-qt673-x86-lin-win
 
 DOCKER_RUN = docker run --rm \
+	--user $(id -u):$(id -g) \
 	-e JENKINS_BUILD=$(JENKINS_BUILD) \
 	-v $(shell pwd):/workspace
 
