@@ -562,10 +562,10 @@ gen_report_eco:
 # ============================================
 
 DOCKER_IMAGE ?= rp-qt673-x86-lin-win
+DOCKER_IMAGE_CONSOLE ?= rp-streaming
 
 DOCKER_RUN = docker run --rm \
 	--user $(id -u):$(id -g) \
-	-e JENKINS_BUILD=$(JENKINS_BUILD) \
 	-v $(shell pwd):/workspace
 
 
@@ -588,6 +588,9 @@ streaming_client_arm64:
 streaming_client_qt:
 	$(MAKE) -i -C $(APP_STREAMINGMANAGER_DIR) clean
 	$(MAKE) -C $(APP_STREAMINGMANAGER_DIR) INSTALL_DIR=$(abspath $(INSTALL_DIR)) install_client_qt
+
+docker-streaming_client:
+	$(DOCKER_RUN) $(DOCKER_IMAGE_CONSOLE) make -f Makefile.x86 streaming DOCKER_BUILD=ON
 
 docker-streaming_client_qt:
 	@echo "========================================"

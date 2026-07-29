@@ -1,0 +1,7 @@
+# environment.yml
+name: base_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - numpy
