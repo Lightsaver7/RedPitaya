@@ -396,8 +396,8 @@ typedef struct osc_control_s {
      * bits [15: 0] - ChB threshold
      * bits [31:16] - reserved
      */
-    uint32_t cha_hystersis;
-    uint32_t chb_hystersis;
+    uint32_t cha_hysteresis;
+    uint32_t chb_hysteresis;
 
     /** @brief Offset 0x28
      * bits [0] - enable signal average at decimation ch1

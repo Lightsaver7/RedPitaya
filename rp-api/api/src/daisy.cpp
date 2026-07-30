@@ -40,8 +40,8 @@ int daisy_printRegset() {
         return ret;
     }
 
-    printReg("%-25s\t0x%X = 0x%08X (%d)\n", "Control", DAISY_BASE_ADDR + offsetof(daisy_regset_uint_t, cotrol), daisy->reg_uint.cotrol);
-    daisy->reg.cotrol.print();
+    printReg("%-25s\t0x%X = 0x%08X (%d)\n", "Control", DAISY_BASE_ADDR + offsetof(daisy_regset_uint_t, control), daisy->reg_uint.control);
+    daisy->reg.control.print();
     printReg("%-25s\t0x%X = 0x%08X (%d)\n", "Transmit", DAISY_BASE_ADDR + offsetof(daisy_regset_uint_t, transmit), daisy->reg_uint.transmit);
     daisy->reg.transmit.print();
     printReg("%-25s\t0x%X = 0x%08X (%d)\n", "Receiver training", DAISY_BASE_ADDR + offsetof(daisy_regset_uint_t, r_training), daisy->reg_uint.r_training);
@@ -50,45 +50,43 @@ int daisy_printRegset() {
     daisy->reg.r_data.print();
     printReg("%-25s\t0x%X = 0x%08X (%d)\n", "Testing control", DAISY_BASE_ADDR + offsetof(daisy_regset_uint_t, t_control), daisy->reg_uint.t_control);
     daisy->reg.t_control.print();
-    printReg("%-25s\t0x%X = 0x%08X (%d)\n", "Testing error counter", DAISY_BASE_ADDR + offsetof(daisy_regset_uint_t, t_error_counter),
-             daisy->reg_uint.t_error_counter);
-    printReg("%-25s\t0x%X = 0x%08X (%d)\n", "Testing data counter", DAISY_BASE_ADDR + offsetof(daisy_regset_uint_t, t_data_counter),
-             daisy->reg_uint.t_data_counter);
+    printReg("%-25s\t0x%X = 0x%08X (%d)\n", "Testing error counter", DAISY_BASE_ADDR + offsetof(daisy_regset_uint_t, t_error_counter), daisy->reg_uint.t_error_counter);
+    printReg("%-25s\t0x%X = 0x%08X (%d)\n", "Testing data counter", DAISY_BASE_ADDR + offsetof(daisy_regset_uint_t, t_data_counter), daisy->reg_uint.t_data_counter);
 
     return cmn_ReleaseClose(fd1, DAISY_BASE_SIZE, (void**)&daisy);
 }
 
 int daisy_SetTXEnable(bool enable) {
     CHECK_REGSET("[daisy_SetTXEnable]")
-    cmn_Debug("g_daisy_regset->cotrol.tx_enable <- 0x%X", enable);
-    g_daisy_regset->reg.cotrol.tx_enable = enable;
+    cmn_Debug("g_daisy_regset->control.tx_enable <- 0x%X", enable);
+    g_daisy_regset->reg.control.tx_enable = enable;
     return RP_OK;
 }
 
 int daisy_GetTXEnable(bool* state) {
     CHECK_REGSET("[daisy_GetTXEnable]")
-    *state = g_daisy_regset->reg.cotrol.tx_enable;
-    cmn_Debug("g_daisy_regset->cotrol.tx_enable -> 0x%X", *state);
+    *state = g_daisy_regset->reg.control.tx_enable;
+    cmn_Debug("g_daisy_regset->control.tx_enable -> 0x%X", *state);
     return RP_OK;
 }
 
 int daisy_SetRXEnable(bool enable) {
     CHECK_REGSET("[daisy_SetRXEnable]")
-    cmn_Debug("g_daisy_regset->cotrol.rx_enable <- 0x%X", enable);
-    g_daisy_regset->reg.cotrol.rx_enable = enable;
+    cmn_Debug("g_daisy_regset->control.rx_enable <- 0x%X", enable);
+    g_daisy_regset->reg.control.rx_enable = enable;
     return RP_OK;
 }
 
 int daisy_GetRXEnable(bool* state) {
     CHECK_REGSET("[daisy_GetRXEnable]")
-    *state = g_daisy_regset->reg.cotrol.rx_enable;
-    cmn_Debug("g_daisy_regset->cotrol.rx_enable -> 0x%X", *state);
+    *state = g_daisy_regset->reg.control.rx_enable;
+    cmn_Debug("g_daisy_regset->control.rx_enable -> 0x%X", *state);
     return RP_OK;
 }
 
 int daisy_SetDataMode(daisy_data_source_t mode) {
     CHECK_REGSET("[daisy_SetDataMode]")
-    cmn_Debug("g_daisy_regset->cotrol.rx_enable <- 0x%X", mode);
+    cmn_Debug("g_daisy_regset->control.rx_enable <- 0x%X", mode);
     g_daisy_regset->reg.transmit.data_source = (uint8_t)mode;
     return RP_OK;
 }
@@ -96,7 +94,7 @@ int daisy_SetDataMode(daisy_data_source_t mode) {
 int daisy_GetDataMode(daisy_data_source_t* mode) {
     CHECK_REGSET("[daisy_GetDataMode]")
     *mode = (daisy_data_source_t)g_daisy_regset->reg.transmit.data_source;
-    cmn_Debug("g_daisy_regset->cotrol.rx_enable -> 0x%X", *mode);
+    cmn_Debug("g_daisy_regset->control.rx_enable -> 0x%X", *mode);
     return RP_OK;
 }
 

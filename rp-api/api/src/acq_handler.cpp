@@ -318,13 +318,13 @@ int acq_SetGain(rp_channel_t channel, rp_pinState_t state) {
 
     int ret = acq_GetChannelThreshold(channel, &ch_thr);
     if (ret != RP_OK) {
-        ERROR_LOG("Error get threshhold err: %d", ret);
+        ERROR_LOG("Error get threshold err: %d", ret);
         return ret;
     }
 
     ret = acq_GetChannelThresholdHyst(channel, &ch_hyst);
     if (ret != RP_OK) {
-        fprintf(stderr, "[Error:acq_SetGain] Error get threshhold hysteresis err: %d", ret);
+        fprintf(stderr, "[Error:acq_SetGain] Error get threshold hysteresis err: %d", ret);
         return ret;
     }
 
@@ -334,6 +334,11 @@ int acq_SetGain(rp_channel_t channel, rp_pinState_t state) {
         return RP_EOOR;
     }
     if (is_attenuator) {
+        if (channel != RP_CH_1 && channel != RP_CH_2) {
+            ERROR_LOG("Attenuator control is only supported for channels 1 and 2, got channel %d", channel);
+            return RP_EOOR;
+        }
+
         int ch = (channel == RP_CH_1 ? RP_MAX7311_IN1 : RP_MAX7311_IN2);
         int att = (state == RP_LOW ? RP_ATTENUATOR_1_1 : RP_ATTENUATOR_1_20);
         status = rp_setAttenuator_C(ch, att);

@@ -182,8 +182,8 @@ int osc_printRegset() {
                  strWithCh("Channel %d trigger write pointer", baseCh).c_str(),
                  baseOffset + offsetof(osc_control_t, wr_ptr_trigger),
                  reg->wr_ptr_trigger);
-        printReg("%-25s\t0x%X = 0x%08X (%d)\n", strWithCh("Channel %d hysteresis", baseCh).c_str(), baseOffset + offsetof(osc_control_t, cha_hystersis), reg->cha_hystersis);
-        printReg("%-25s\t0x%X = 0x%08X (%d)\n", strWithCh("Channel %d hysteresis", baseCh + 1).c_str(), baseOffset + offsetof(osc_control_t, chb_hystersis), reg->chb_hystersis);
+        printReg("%-25s\t0x%X = 0x%08X (%d)\n", strWithCh("Channel %d hysteresis", baseCh).c_str(), baseOffset + offsetof(osc_control_t, cha_hysteresis), reg->cha_hysteresis);
+        printReg("%-25s\t0x%X = 0x%08X (%d)\n", strWithCh("Channel %d hysteresis", baseCh + 1).c_str(), baseOffset + offsetof(osc_control_t, chb_hysteresis), reg->chb_hysteresis);
 
         if (baseCh == 1) {
             trig_average_u_t conf;
@@ -1294,50 +1294,50 @@ int osc_GetThresholdChD(uint32_t* threshold) {
  */
 int osc_SetHysteresisChA(uint32_t hysteresis) {
     uint32_t currentValue = 0;
-    cmn_Debug("cmn_SetValue(&osc_reg->cha_hystersis) mask 0x3FFF <- 0x%X", hysteresis);
-    return cmn_SetValue(&osc_reg->cha_hystersis, hysteresis, HYSTERESIS_MASK, &currentValue);
+    cmn_Debug("cmn_SetValue(&osc_reg->cha_hysteresis) mask 0x3FFF <- 0x%X", hysteresis);
+    return cmn_SetValue(&osc_reg->cha_hysteresis, hysteresis, HYSTERESIS_MASK, &currentValue);
 }
 
 int osc_GetHysteresisChA(uint32_t* hysteresis) {
-    return cmn_GetValue(&osc_reg->cha_hystersis, hysteresis, HYSTERESIS_MASK);
+    return cmn_GetValue(&osc_reg->cha_hysteresis, hysteresis, HYSTERESIS_MASK);
 }
 
 int osc_SetHysteresisChB(uint32_t hysteresis) {
     uint32_t currentValue = 0;
-    cmn_Debug("cmn_SetValue(&osc_reg->chb_hystersis) mask 0x3FFF <- 0x%X", hysteresis);
-    return cmn_SetValue(&osc_reg->chb_hystersis, hysteresis, HYSTERESIS_MASK, &currentValue);
+    cmn_Debug("cmn_SetValue(&osc_reg->chb_hysteresis) mask 0x3FFF <- 0x%X", hysteresis);
+    return cmn_SetValue(&osc_reg->chb_hysteresis, hysteresis, HYSTERESIS_MASK, &currentValue);
 }
 
 int osc_GetHysteresisChB(uint32_t* hysteresis) {
-    return cmn_GetValue(&osc_reg->chb_hystersis, hysteresis, HYSTERESIS_MASK);
+    return cmn_GetValue(&osc_reg->chb_hysteresis, hysteresis, HYSTERESIS_MASK);
 }
 
 int osc_SetHysteresisChC(uint32_t hysteresis) {
     if (!osc_reg_4ch)
         return RP_NOTS;
     uint32_t currentValue = 0;
-    cmn_Debug("cmn_SetValue(&osc_reg_4ch->cha_hystersis) mask 0x3FFF <- 0x%X", hysteresis);
-    return cmn_SetValue(&osc_reg_4ch->cha_hystersis, hysteresis, HYSTERESIS_MASK, &currentValue);
+    cmn_Debug("cmn_SetValue(&osc_reg_4ch->cha_hysteresis) mask 0x3FFF <- 0x%X", hysteresis);
+    return cmn_SetValue(&osc_reg_4ch->cha_hysteresis, hysteresis, HYSTERESIS_MASK, &currentValue);
 }
 
 int osc_GetHysteresisChC(uint32_t* hysteresis) {
     if (!osc_reg_4ch)
         return RP_NOTS;
-    return cmn_GetValue(&osc_reg_4ch->cha_hystersis, hysteresis, HYSTERESIS_MASK);
+    return cmn_GetValue(&osc_reg_4ch->cha_hysteresis, hysteresis, HYSTERESIS_MASK);
 }
 
 int osc_SetHysteresisChD(uint32_t hysteresis) {
     if (!osc_reg_4ch)
         return RP_NOTS;
     uint32_t currentValue = 0;
-    cmn_Debug("cmn_SetValue(&osc_reg_4ch->chb_hystersis) mask 0x3FFF <- 0x%X", hysteresis);
-    return cmn_SetValue(&osc_reg_4ch->chb_hystersis, hysteresis, HYSTERESIS_MASK, &currentValue);
+    cmn_Debug("cmn_SetValue(&osc_reg_4ch->chb_hysteresis) mask 0x3FFF <- 0x%X", hysteresis);
+    return cmn_SetValue(&osc_reg_4ch->chb_hysteresis, hysteresis, HYSTERESIS_MASK, &currentValue);
 }
 
 int osc_GetHysteresisChD(uint32_t* hysteresis) {
     if (!osc_reg_4ch)
         return RP_NOTS;
-    return cmn_GetValue(&osc_reg_4ch->chb_hystersis, hysteresis, HYSTERESIS_MASK);
+    return cmn_GetValue(&osc_reg_4ch->chb_hysteresis, hysteresis, HYSTERESIS_MASK);
 }
 
 int osc_SetEqFilterBypass(rp_channel_t channel, bool enable) {

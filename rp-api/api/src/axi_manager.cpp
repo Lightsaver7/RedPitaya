@@ -62,7 +62,10 @@ int osc_axi_map(size_t size, size_t offset, void** mapped) {
     }
     if (offset % sysconf(_SC_PAGESIZE) != 0) {
         ERROR_LOG("Error size. offset %% sysconf(_SC_PAGESIZE) = %ld  must be zero. sysconf(_SC_PAGESIZE) = %ld\nOffset %ld must be a multiple of sysconf(_SC_PAGESIZE) = %ld\n",
-                  offset % sysconf(_SC_PAGESIZE), sysconf(_SC_PAGESIZE), (long int)offset, sysconf(_SC_PAGESIZE));
+                  offset % sysconf(_SC_PAGESIZE),
+                  sysconf(_SC_PAGESIZE),
+                  (long int)offset,
+                  sysconf(_SC_PAGESIZE));
         return RP_EMMD;
     }
     *mapped = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, g_mem_fd, offset);
@@ -143,12 +146,6 @@ int axi_checkOverlapped(uint32_t _startAddress, uint32_t _size) {
 
 int axi_reserveMemory(uint32_t _startAddress, uint32_t _size, uint64_t* _index) {
     std::lock_guard lock(g_mutex);
-    *_index = ++g_index;
-    block_t block{_startAddress, _size, *_index};
-    if (axi_checkOverlapped(block)) {
-        ERROR_LOG("Memory overlapped")
-        return -1;
-    }
 
     if (_startAddress == 0 && _size == 0) {
         ERROR_LOG("AXI mode not initialized");
@@ -170,7 +167,15 @@ int axi_reserveMemory(uint32_t _startAddress, uint32_t _size, uint64_t* _index) 
         return RP_EOOR;
     }
 
+    block_t block{_startAddress, _size, 0};
+    if (axi_checkOverlapped(block)) {
+        ERROR_LOG("Memory overlapped")
+        return -1;
+    }
+
     ECHECK(osc_axi_map(block.size, block.start, (void**)&block.mapped))
+    block.index = ++g_index;
+    *_index = block.index;
     g_reserved.push_back(block);
     return RP_OK;
 }

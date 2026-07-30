@@ -86,7 +86,7 @@ typedef struct daisy_testing_control_s {
 } daisy_testing_control_t;
 
 typedef struct daisy_regset_s {
-    daisy_control_t cotrol;                // 0x0 **Control**
+    daisy_control_t control;               // 0x0 **Control**
     daisy_transmit_t transmit;             // 0x4 **Transmitter data selector**
     daisy_receiver_training_t r_training;  // 0x8 **Receiver training**
     daisy_receiver_data_t r_data;          // 0xC **Receiver data**
@@ -96,7 +96,7 @@ typedef struct daisy_regset_s {
 } daisy_regset_t;
 
 typedef struct daisy_regset_uint_s {
-    uint32_t cotrol;           // 0x0 **Control**
+    uint32_t control;          // 0x0 **Control**
     uint32_t transmit;         // 0x4 **Transmitter data selector**
     uint32_t r_training;       // 0x8 **Receiver training**
     uint32_t r_data;           // 0xC **Receiver data**
