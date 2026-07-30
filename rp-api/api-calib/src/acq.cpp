@@ -686,13 +686,15 @@ void COscilloscope::acquireAutoFilter() {
     localDP.index = m_index++;
     auto cross = calcCountCrossZero(m_acu_buffer, acq_u_size);
     if (cross.size() >= 2) {
+        double deviation = 0, deviationRaw = 0;
         auto last_max = findLastMax(m_acu_buffer, acq_u_size, cross[1]);
         // auto last_max_raw = findLastMax(m_acu_buffer_raw, acq_u_size, cross[1]);
-        double value = calculate(m_acu_buffer, acq_u_size, m_acu_buffer[last_max], cross[0], cross[1], localDP.deviation);
-        double value_raw = calculate(m_acu_buffer_raw, acq_u_size, m_acu_buffer_raw[last_max], cross[0], cross[1], localDP.deviation);
+        double value = calculate(m_acu_buffer, acq_u_size, m_acu_buffer[last_max], cross[0], cross[1], deviation);
+        double value_raw = calculate(m_acu_buffer_raw, acq_u_size, m_acu_buffer_raw[last_max], cross[0], cross[1], deviationRaw);
         localDP.is_valid = true;
         localDP.calib_value = value;
         localDP.calib_value_raw = value_raw;
+        localDP.deviation = deviationRaw;
         // localDP.rmsFilter = findRSM(m_acu_buffer, acq_u_size);
         // localDP.ampl = (double)localDP.rmsFilter / 10000.0;
         localDP.ampl = m_acu_buffer[last_max];

@@ -36,6 +36,12 @@
         return false;
     }
 
+
+    OBJ.famIs4Ch = function(_model){
+        if (_model === "Z20_125_4CH") return true;
+        return false;
+    }
+
     OBJ.famSetModel = function(_model) {
         if (OBJ.famModel === undefined) {
             OBJ.famModel = _model.value;
@@ -269,8 +275,13 @@
 
 
                 } else {
-                    $("#am_a_filt_dialog_img").attr("src", "./img/125/RP_125_REF_FILTER.png");
-                    $("#am_a_filt_dialog_text").text("Set jumpers to LV position and connect IN1 and IN2"+load+" to external signal generator 1kHz square signal.");
+                    if (OBJ.famIs4Ch(OBJ.famModel)){
+                        $("#am_a_filt_dialog_img").attr("src", "./img/125_4CH/RP_125_REF_FILTER.png");
+                        $("#am_a_filt_dialog_text").text("Set jumpers to LV position and connect IN1, IN2, IN3 and IN4 "+load+" to external signal generator 1kHz square signal.");
+                    }else{
+                        $("#am_a_filt_dialog_img").attr("src", "./img/125/RP_125_REF_FILTER.png");
+                        $("#am_a_filt_dialog_text").text("Set jumpers to LV position and connect IN1 and IN2"+load+" to external signal generator 1kHz square signal.");
+                    }
 
                     if (OBJ.famStates[OBJ.famCurrentTest].hasOwnProperty("kk")) {
                         $("#SS_A_FILT_KK_VALUE").val(OBJ.famStates[OBJ.famCurrentTest].kk);
@@ -298,8 +309,13 @@
                     }
 
                 } else {
-                    $("#am_a_filt_dialog_img").attr("src", "./img/125/RP_125_REF_HV_FILTER.png");
-                    $("#am_a_filt_dialog_text").text("Set jumpers to HV position and connect IN1 and IN2"+load+" to external signal generator 1kHz square signal.");
+                    if (OBJ.famIs4Ch(OBJ.famModel)){
+                        $("#am_a_filt_dialog_img").attr("src", "./img/125_4CH/RP_125_REF_HV_FILTER.png");
+                        $("#am_a_filt_dialog_text").text("Set jumpers to HV position and connect IN1, IN2, IN3 and IN4 "+load+" to external signal generator 1kHz square signal.");
+                    }else{
+                        $("#am_a_filt_dialog_img").attr("src", "./img/125/RP_125_REF_HV_FILTER.png");
+                        $("#am_a_filt_dialog_text").text("Set jumpers to HV position and connect IN1 and IN2"+load+" to external signal generator 1kHz square signal.");
+                    }
 
                     if (OBJ.famStates[OBJ.famCurrentTest].hasOwnProperty("kk")) {
                         $("#SS_A_FILT_KK_VALUE").val(OBJ.famStates[OBJ.famCurrentTest].kk);

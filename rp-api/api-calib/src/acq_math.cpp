@@ -41,7 +41,7 @@ std::vector<int> calcCountCrossZero(float* _buffer, int _size) {
 
 float* filterBuffer(float* _buffer, int _size) {
     float* new_buffer = new float[_size];
-    std::memcpy(new_buffer, _buffer, _size);
+    std::memcpy(new_buffer, _buffer, _size * sizeof(float));
     float core[] = {1.0 / 8.0, 1.0 / 4.0, 1.0 / 4.0, 1.0 / 4.0, 1.0 / 8.0};
     for (int i = 2; i < _size - 2; i++) {
         float sum = 0;
@@ -63,11 +63,11 @@ int findLastMax(float* _buffer, int _size, int _cross) {
     while (fabs(f[left_pos - 1] - f[left_pos]) > eps) {
         left_pos--;
         if (left_pos == 0) {
-            delete f;
+            delete[] f;
             return -1;
         }
     }
-    delete f;
+    delete[] f;
     return left_pos;
 }
 
@@ -130,38 +130,43 @@ uint64_t findDT(float* _buffer, int _size, uint64_t _rms) {
 // }
 
 double calculate(float* _buffer, int _size, float _last_max, int _cross1, int _cross2, double& _deviation) {
-    if (_cross1 < 0 || _cross2 >= _size || _last_max == 0)
+    constexpr float kMinAmplitude = 1e-6f;
+    constexpr float kFlatDeltaThreshold = 0.2022f;  // == acos(0.95f) / (M_PI/2)
+
+    if (_size <= 0 || _cross1 < 0 || _cross2 >= _size || _cross2 <= _cross1 || std::abs(_last_max) < kMinAmplitude) {
+        _deviation = -1;
         return -1;
-
-    double sum = 0;
-    float w = 10.0f;
-
-    for (int i = _cross1; i < _cross2 - 1; i++) {
-        float delta = std::abs(_buffer[i] - _buffer[i + 1]) / _last_max;
-
-        float shape_factor = std::cos(delta * 1.5708f);
-
-        if (shape_factor > 0.95) {
-            sum += std::abs(_buffer[i] / _last_max - 1.0) * w;
-            if (w > 1.0)
-                w -= 0.5;
-        } else {
-            sum += (1.0 - shape_factor) * 2.0;
-        }
     }
 
-    _deviation = 0;
+    const float inv_last_max = 1.0f / _last_max;
+    const float flat_threshold_raw = _last_max * 0.05f;
+
+    double sum = 0;
+    double deviation_sum = 0;
     int flat_points = 0;
-    for (int i = _cross1; i < _cross2 - 1; i++) {
-        float delta = std::abs(_buffer[i] - _buffer[i + 1]);
-        if (delta < (_last_max * 0.05)) {
-            _deviation += std::abs(_buffer[i] - _last_max);
+    float w = 10.0f;
+
+    for (int i = _cross1; i < _cross2; i++) {
+        const float raw_delta = std::abs(_buffer[i] - _buffer[i + 1]);
+        float norm_delta = raw_delta * inv_last_max;
+        if (norm_delta > 1.0f)
+            norm_delta = 1.0f;
+
+        if (norm_delta < kFlatDeltaThreshold) {
+            sum += std::abs(_buffer[i] * inv_last_max - 1.0f) * w;
+            w = (w > 1.0f) ? (w - 0.5f) : 1.0f;
+        } else {
+            float shape_factor = std::cos(norm_delta * 1.5708f);
+            sum += (1.0 - shape_factor) * 2.0;
+        }
+
+        if (raw_delta < flat_threshold_raw) {
+            deviation_sum += std::abs(_buffer[i] - _last_max);
             flat_points++;
         }
     }
-    if (flat_points > 0)
-        _deviation /= flat_points;
 
+    _deviation = (flat_points > 0) ? (deviation_sum / flat_points) : std::abs(_last_max);
     return sum;
 }
 

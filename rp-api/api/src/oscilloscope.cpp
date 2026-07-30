@@ -23,6 +23,10 @@
 #include "oscilloscope.h"
 #include "rp.h"
 
+#define RESERV_DMA_BYTES 8
+#define MAX_FD_OSC 4
+#define MAX_OSC 4
+
 // The FPGA register structure for oscilloscope
 static volatile osc_control_t* osc_reg = NULL;
 
@@ -33,7 +37,7 @@ static volatile uint32_t* osc_cha = NULL;
 static volatile uint32_t* osc_chb = NULL;
 
 // // The FPGA input signal buffer pointer for AXI channel A
-static volatile uint64_t osc_axi_mem_reserved_index[4] = {0, 0, 0, 0};
+static volatile uint64_t osc_axi_mem_reserved_index[MAX_OSC] = {0, 0, 0, 0};
 
 // static uint32_t osc_axi_cha_size = 0;
 
@@ -62,9 +66,6 @@ static int_mask_t g_current_int_mask;
 // static volatile uint16_t *osc_axi_chd = NULL;
 
 // static uint32_t osc_axi_chd_size = 0;
-
-#define RESERV_DMA_BYTES 8
-#define MAX_FD_OSC 4
 
 int fd_osc_common = -1;
 int fd_osc[MAX_FD_OSC] = {-1, -1, -1, -1};
@@ -1670,7 +1671,6 @@ int osc_GetEqFiltersChC(uint32_t* coef_aa, uint32_t* coef_bb, uint32_t* coef_kk,
 int osc_SetEqFiltersChD(uint32_t coef_aa, uint32_t coef_bb, uint32_t coef_kk, uint32_t coef_pp) {
     if (!osc_reg_4ch)
         return RP_NOTS;
-
     uint32_t currentValueAA = 0;
     uint32_t currentValueBB = 0;
     uint32_t currentValueKK = 0;
@@ -2189,9 +2189,13 @@ int osc_axi_GetTriggerDelayChD(uint32_t* decimated_data_num) {
 }
 
 const uint16_t* osc_axi_GetDataBufferCh(rp_channel_t channel) {
+    if (channel >= MAX_OSC)
+        return NULL;
+
     auto idx = osc_axi_mem_reserved_index[channel];
     if (idx == 0) {
         ERROR_LOG("Buffer for channel %d not mapped", channel + 1)
+        return NULL;
     }
     uint16_t* buffer = NULL;
     uint32_t size = 0;
