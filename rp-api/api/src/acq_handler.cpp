@@ -58,6 +58,7 @@ float ch_hyst[4] = {0.005, 0.005, 0.005, 0.005};
 float ch_trash[4] = {0.005, 0.005, 0.005, 0.005};
 float ch_offset_input[4] = {0, 0, 0, 0};
 float ch_offset_input_axi[4] = {0, 0, 0, 0};
+
 static bool g_split_mode = false;
 
 /*----------------------------------------------------------------------------*/
@@ -410,7 +411,6 @@ int acq_SetDecimation(rp_channel_t channel, rp_acq_decimation_t decimation) {
     if (triggerDelayInNs) {
         acq_SetTriggerDelayNs(channel, time_ns);
     }
-
     return RP_OK;
 }
 
@@ -447,7 +447,6 @@ int acq_SetDecimationFactor(rp_channel_t channel, uint32_t decimation) {
     if (triggerDelayInNs) {
         acq_SetTriggerDelayNs(channel, time_ns);
     }
-
     return RP_OK;
 }
 

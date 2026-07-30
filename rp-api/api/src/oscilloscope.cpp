@@ -70,6 +70,9 @@ static int_mask_t g_current_int_mask;
 int fd_osc_common = -1;
 int fd_osc[MAX_FD_OSC] = {-1, -1, -1, -1};
 
+static uint32_t g_decimation[4] = {RP_DEC_1, RP_DEC_1, RP_DEC_1, RP_DEC_1};
+static uint32_t g_trigDelay[4] = {0, 0, 0, 0};
+
 /**
  * general
  */
@@ -778,13 +781,16 @@ int osc_SetDecimation(rp_channel_t channel, uint32_t decimation) {
     switch (channel) {
         case RP_CH_1:
             cmn_Debug("cmn_SetValue(&osc_reg->data_dec) mask 0x1FFFF <- 0x%X", decimation);
+            g_decimation[channel] = decimation;
             return cmn_SetValue(&osc_reg->data_dec, decimation, DATA_DEC_MASK, &currentValue);
         case RP_CH_2:
             cmn_Debug("cmn_SetValue(&osc_reg->data_dec_ch2) mask 0x1FFFF <- 0x%X", decimation);
+            g_decimation[channel] = decimation;
             return cmn_SetValue(&osc_reg->data_dec_ch2, decimation, DATA_DEC_MASK, &currentValue);
         case RP_CH_3:
             if (osc_reg_4ch) {
                 cmn_Debug("cmn_SetValue(&osc_reg_4ch->data_dec) mask 0x1FFFF <- 0x%X", decimation);
+                g_decimation[channel] = decimation;
                 return cmn_SetValue(&osc_reg_4ch->data_dec, decimation, DATA_DEC_MASK, &currentValue);
             } else {
                 ERROR_LOG("Registers for channels 3 and 4 are not initialized")
@@ -794,6 +800,7 @@ int osc_SetDecimation(rp_channel_t channel, uint32_t decimation) {
         case RP_CH_4:
             if (osc_reg_4ch) {
                 cmn_Debug("cmn_SetValue(&osc_reg_4ch->data_dec_ch2) mask 0x1FFFF <- 0x%X", decimation);
+                g_decimation[channel] = decimation;
                 return cmn_SetValue(&osc_reg_4ch->data_dec_ch2, decimation, DATA_DEC_MASK, &currentValue);
             } else {
                 ERROR_LOG("Registers for channels 3 and 4 are not initialized")
@@ -884,6 +891,11 @@ int osc_SetTriggerSource(rp_channel_t channel, uint32_t source) {
         case RP_CH_2:
         case RP_CH_3:
         case RP_CH_4:
+
+            if (g_decimation[channel] == RP_DEC_1 && g_trigDelay[channel] == 1) {
+                WARNING("When setting Decimation 1 and Delay 1, the trigger may not arrive. Error using settings.")
+            }
+
             control.reg_full = osc_reg->trig_source;
             control.reg[channel].trig_source = source;
             osc_reg->trig_source = control.reg_full;
@@ -1179,13 +1191,16 @@ int osc_SetTriggerDelay(rp_channel_t channel, uint32_t decimated_data_num) {
     switch (channel) {
         case RP_CH_1:
             cmn_Debug("cmn_SetValue(&osc_reg->trigger_delay) mask 0xFFFFFFFF <- 0x%X", decimated_data_num);
+            g_trigDelay[channel] = decimated_data_num;
             return cmn_SetValue(&osc_reg->trigger_delay, decimated_data_num, TRIG_DELAY_MASK, &currentValue);
         case RP_CH_2:
             cmn_Debug("cmn_SetValue(&osc_reg->trigger_delay_ch2) mask 0xFFFFFFFF <- 0x%X", decimated_data_num);
+            g_trigDelay[channel] = decimated_data_num;
             return cmn_SetValue(&osc_reg->trigger_delay_ch2, decimated_data_num, TRIG_DELAY_MASK, &currentValue);
         case RP_CH_3:
             if (osc_reg_4ch) {
                 cmn_Debug("cmn_SetValue(&osc_reg_4ch->trigger_delay) mask 0xFFFFFFFF <- 0x%X", decimated_data_num);
+                g_trigDelay[channel] = decimated_data_num;
                 return cmn_SetValue(&osc_reg_4ch->trigger_delay, decimated_data_num, TRIG_DELAY_MASK, &currentValue);
             } else {
                 ERROR_LOG("Registers for channels 3 and 4 are not initialized")
@@ -1195,6 +1210,7 @@ int osc_SetTriggerDelay(rp_channel_t channel, uint32_t decimated_data_num) {
         case RP_CH_4:
             if (osc_reg_4ch) {
                 cmn_Debug("cmn_SetValue(&osc_reg_4ch->trigger_delay_ch2) mask 0xFFFFFFFF <- 0x%X", decimated_data_num);
+                g_trigDelay[channel] = decimated_data_num;
                 return cmn_SetValue(&osc_reg_4ch->trigger_delay_ch2, decimated_data_num, TRIG_DELAY_MASK, &currentValue);
             } else {
                 ERROR_LOG("Registers for channels 3 and 4 are not initialized")
