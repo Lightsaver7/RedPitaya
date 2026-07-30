@@ -851,6 +851,7 @@ int osc_SetAveraging(rp_channel_t channel, bool enable) {
         case RP_CH_2:
         case RP_CH_3:
         case RP_CH_4:
+            //  Set only for split trigger mode. Otherwise, only the value of the first channel is used.
             config.reg_full = osc_reg->average;
             config.reg[channel].average = value;
             osc_reg->average = config.reg_full;
@@ -868,11 +869,27 @@ int osc_GetAveraging(rp_channel_t channel, bool* enable) {
     switch (channel) {
         case RP_CH_1:
         case RP_CH_2:
-        case RP_CH_3:
-        case RP_CH_4:
             config.reg_full = osc_reg->average;
             *enable = config.reg[channel].average;
             return RP_OK;
+        case RP_CH_3:
+            if (osc_reg_4ch) {
+                config.reg_full = osc_reg_4ch->average;
+                *enable = config.reg[RP_CH_1].average;
+                return RP_OK;
+            } else {
+                ERROR_LOG("Registers for channels 3 and 4 are not initialized")
+                return RP_NOTS;
+            }
+        case RP_CH_4:
+            if (osc_reg_4ch) {
+                config.reg_full = osc_reg_4ch->average;
+                *enable = config.reg[RP_CH_2].average;
+                return RP_OK;
+            } else {
+                ERROR_LOG("Registers for channels 3 and 4 are not initialized")
+                return RP_NOTS;
+            }
         default:
             ERROR_LOG("Wrong channel %d", channel)
             break;
@@ -1063,6 +1080,7 @@ int osc_Set16BitMode(rp_channel_t channel, bool enable) {
         case RP_CH_2:
         case RP_CH_3:
         case RP_CH_4:
+            //  Set only for split trigger mode. Otherwise, only the value of the first channel is used.
             config.reg_full = osc_reg->average;
             config.reg[channel].enable_16b_mode = enable ? 0x1 : 0;
             osc_reg->average = config.reg_full;
@@ -1080,12 +1098,28 @@ int osc_Get16BitMode(rp_channel_t channel, bool* state) {
     switch (channel) {
         case RP_CH_1:
         case RP_CH_2:
-        case RP_CH_3:
-        case RP_CH_4:
             config.reg_full = osc_reg->average;
             *state = config.reg[channel].enable_16b_mode;
             cmn_Debug("[Read] osc_reg->average -> 0x%X", config.reg_full);
             return RP_OK;
+        case RP_CH_3:
+            if (osc_reg_4ch) {
+                config.reg_full = osc_reg_4ch->average;
+                *state = config.reg[RP_CH_1].enable_16b_mode;
+                return RP_OK;
+            } else {
+                ERROR_LOG("Registers for channels 3 and 4 are not initialized")
+                return RP_NOTS;
+            }
+        case RP_CH_4:
+            if (osc_reg_4ch) {
+                config.reg_full = osc_reg_4ch->average;
+                *state = config.reg[RP_CH_2].enable_16b_mode;
+                return RP_OK;
+            } else {
+                ERROR_LOG("Registers for channels 3 and 4 are not initialized")
+                return RP_NOTS;
+            }
         default:
             ERROR_LOG("Wrong channel %d", channel)
             break;
