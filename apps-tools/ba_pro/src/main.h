@@ -55,6 +55,8 @@ auto outFreqMax() -> int;
 auto outAmpDef() -> float;
 auto outAmpMax() -> float;
 auto isGenBias() -> bool;
+auto isLV_HV() -> bool;
+auto isAC_DC() -> bool;
 
 void updateParametersByConfig();
 

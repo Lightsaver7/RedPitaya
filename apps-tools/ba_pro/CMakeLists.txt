@@ -103,9 +103,11 @@ add_compile_options($<$<CONFIG:Debug>:-DTRACE_ENABLE>)
 add_compile_options($<$<CONFIG:Debug>:-DZIP_DISABLED>)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
-target_link_libraries(${PROJECT_NAME} PRIVATE cryptopp rp_sdk ${rp_libs} pthread)
+target_link_libraries(${PROJECT_NAME} PRIVATE rp_sdk ${rp_libs} pthread)
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "")
-
+target_link_options(${PROJECT_NAME} PRIVATE
+    "LINKER:--as-needed"
+    "LINKER:--gc-sections")
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/css DESTINATION ${BUILD_PATH})
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/img DESTINATION ${BUILD_PATH})

@@ -11,12 +11,14 @@
 #include "common.h"
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>  // Needed for O_RDONLY and O_CLOEXEC
 #include <pwd.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>  // Needed for open() and close()
 #include <unistd.h>
 #include <algorithm>
 #include <cstdio>
@@ -67,6 +69,17 @@
 #include "stem_65_16_Z7020_TI_v1.3.h"
 
 #define LINE_LENGTH 0x400
+
+#ifndef EEPROM_PATH
+#define EEPROM_PATH "/sys/bus/i2c/devices/0-0050/eeprom"
+#endif
+#define UBOOT_ENV_OFFSET 0x1804 /* U-Boot env, past the 4-byte CRC header */
+#define UBOOT_ENV_MAX 0x400     /* same as the original LINE_LENGTH */
+#define EEPROM_CHUNK 0x100      /* read granularity; 256 B is ~23 ms at 100 kHz */
+#ifndef HP_CACHE_PATH
+#define HP_CACHE_PATH "/var/run/rp_hw_profile.cache"
+#endif
+#define HP_CACHE_MAGIC "rp_hwp1"
 
 const char* table_keys_help[] = {"all",
                                  "All parameters",
@@ -312,84 +325,192 @@ void hp_checkModel(std::string& model, std::string& eth_mac, bool* is_valid) {
     }
 }
 
+/* ----------------------------------------------------------------- parse --- */
+
+/* Parses NUL-separated key=value entries within [buf, buf+len).
+ * Returns the number of bytes that form complete entries; a trailing fragment
+ * without a NUL is left for the next chunk. */
+static size_t hp_parseEnv(const char* buf, size_t len, std::string& model, std::string& mac) {
+    size_t consumed = 0;
+
+    while (consumed < len) {
+        const void* nul = memchr(buf + consumed, '\0', len - consumed);
+        if (nul == NULL) {
+            break; /* entry is incomplete -- wait for the next chunk */
+        }
+
+        const char* entry = buf + consumed;
+        size_t elen = (const char*)nul - entry;
+        consumed += elen + 1;
+
+        if (elen == 0) {
+            /* double NUL marks the end of the U-Boot environment */
+            return len;
+        }
+
+        const char* eq = (const char*)memchr(entry, '=', elen);
+        if (eq == NULL) {
+            continue;
+        }
+
+        size_t nlen = (size_t)(eq - entry);
+        size_t vlen = elen - nlen - 1;
+        if (vlen == 0) {
+            continue;
+        }
+
+        if (nlen == 6 && memcmp(entry, "hw_rev", 6) == 0 && vlen < 255) {
+            model.assign(eq + 1, vlen);
+        } else if (nlen == 7 && memcmp(entry, "ethaddr", 7) == 0 && vlen < 20) {
+            mac.assign(eq + 1, vlen);
+        }
+    }
+    return consumed;
+}
+
+/* ----------------------------------------------------------------- cache --- */
+
+static bool hp_cacheLoad(std::string& model, std::string& mac) {
+    FILE* f = fopen(HP_CACHE_PATH, "re");
+    if (f == NULL) {
+        return false;
+    }
+
+    char magic[16] = {0}, m[256] = {0}, e[32] = {0};
+    bool ok = (fscanf(f, "%15s %255s %31s", magic, m, e) >= 2) && strcmp(magic, HP_CACHE_MAGIC) == 0 && m[0] != '\0';
+    fclose(f);
+
+    if (ok) {
+        model = m;
+        mac = (e[0] != '\0') ? e : "";
+    }
+    return ok;
+}
+
+static void hp_cacheStore(const std::string& model, const std::string& mac) {
+    /* Write to a temporary file and rename, so that a concurrent reader can
+     * never observe a half-written entry. */
+    char tmp[] = HP_CACHE_PATH ".XXXXXX";
+    int fd = mkstemp(tmp);
+    if (fd < 0) {
+        return;
+    }
+
+    FILE* f = fdopen(fd, "w");
+    if (f == NULL) {
+        close(fd);
+        unlink(tmp);
+        return;
+    }
+
+    fprintf(f, "%s %s %s\n", HP_CACHE_MAGIC, model.c_str(), mac.empty() ? "-" : mac.c_str());
+    fclose(f);
+
+    if (rename(tmp, HP_CACHE_PATH) != 0) {
+        unlink(tmp);
+    }
+}
+
+/* ------------------------------------------------------------------ read --- */
+
+/* Reads the U-Boot environment in chunks, stopping as soon as both keys are found. */
+static int hp_readEeprom(std::string& model, std::string& mac) {
+    int fd = open(EEPROM_PATH, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        fprintf(stderr, "[hp_cmn_Init] Error open eeprom: %s\n", strerror(errno));
+        return -1;
+    }
+
+    std::vector<char> buf;
+    buf.reserve(UBOOT_ENV_MAX);
+
+    size_t pending = 0; /* unparsed prefix length at the front of buf */
+    int rc = -1;
+
+    for (size_t off = 0; off < UBOOT_ENV_MAX; off += EEPROM_CHUNK) {
+        size_t want = EEPROM_CHUNK;
+        if (off + want > UBOOT_ENV_MAX) {
+            want = UBOOT_ENV_MAX - off;
+        }
+
+        size_t base = buf.size();
+        buf.resize(base + want);
+        ssize_t n = pread(fd, buf.data() + base, want, (off_t)(UBOOT_ENV_OFFSET + off));
+
+        if (n < 0) {
+            fprintf(stderr, "[hp_cmn_Init] Error read eeprom: %s\n", strerror(errno));
+            buf.resize(base);
+            break;
+        }
+        buf.resize(base + (size_t)n);
+        if (n == 0) {
+            break; /* EOF */
+        }
+
+        size_t consumed = hp_parseEnv(buf.data() + pending, buf.size() - pending, model, mac);
+        pending += consumed;
+
+        if (!model.empty() && !mac.empty()) {
+            rc = 0; /* got everything we need -- stop touching the bus */
+            break;
+        }
+        if ((size_t)n < want) {
+            break; /* short read -- no more data */
+        }
+    }
+
+    close(fd);
+
+    if (!model.empty()) {
+        rc = 0;
+    }
+    return rc;
+}
+
 int hp_cmn_Init() {
     static bool initialized = false;
+    static bool is_valid = false;
+    static int result = RP_HP_ERM;
     static std::string static_model;
     static std::string static_eth_mac;
-    static bool is_valid = false;
 
     if (initialized) {
-        hp_checkModel(static_model, static_eth_mac, &g_is_valid);
-        return is_valid ? RP_HP_OK : RP_HP_ERM;
+        /* Repeat call: the profile is rebuilt from the strings we already have
+         * and the EEPROM is left alone. Previously the failure paths never got
+         * here at all, so every call re-read the bus. */
+        if (is_valid) {
+            hp_checkModel(static_model, static_eth_mac, &g_is_valid);
+        }
+        return result;
     }
 
-    std::ifstream eeprom("/sys/bus/i2c/devices/0-0050/eeprom", std::ios::binary);
-    if (!eeprom.is_open()) {
-        fprintf(stderr, "[hp_cmn_Init] Error open eeprom: %s\n", strerror(errno));
-        return RP_HP_ERE;
-    }
-
-    eeprom.seekg(0x1804);
-    if (eeprom.fail()) {
-        fprintf(stderr, "[hp_cmn_Init] Error seek eeprom\n");
-        return RP_HP_ERE;
-    }
-
-    std::vector<char> buffer(LINE_LENGTH);
-    eeprom.read(buffer.data(), LINE_LENGTH);
-    size_t bytes_read = eeprom.gcount();
-
-    if (bytes_read == 0) {
-        return RP_HP_ERM;
-    }
+    initialized = true; /* set up front: a failure must not cost 184 ms every time */
 
     std::string model;
     std::string eth_mac;
 
-    // Парсим данные
-    size_t position = 0;
-    while (position < bytes_read) {
-        std::string line(&buffer[position]);
-        if (line.empty()) {
-            break;
+    if (!hp_cacheLoad(model, eth_mac)) {
+        if (hp_readEeprom(model, eth_mac) != 0 && model.empty()) {
+            result = RP_HP_ERE;
+            return result;
         }
-
-        size_t equal_pos = line.find('=');
-        if (equal_pos == std::string::npos) {
-            position += line.length() + 1;
-            continue;
+        if (!model.empty()) {
+            hp_cacheStore(model, eth_mac);
         }
-
-        std::string name = line.substr(0, equal_pos);
-        std::string value = line.substr(equal_pos + 1);
-
-        if (value.empty()) {
-            position += line.length() + 1;
-            continue;
-        }
-
-        if (name == "hw_rev" && value.length() < 255) {
-            model = value;
-            static_model = value;
-        } else if (name == "ethaddr" && value.length() < 20) {
-            eth_mac = value;
-            static_eth_mac = value;
-        }
-
-        position += line.length() + 1;
     }
-
-    eeprom.close();
-    initialized = true;
-    is_valid = !model.empty();
 
     if (model.empty()) {
-        return RP_HP_ERM;
+        result = RP_HP_ERM;
+        return result;
     }
 
-    hp_checkModel(model, eth_mac, &g_is_valid);
+    static_model = model;
+    static_eth_mac = eth_mac;
+    is_valid = true;
+    result = RP_HP_OK;
 
-    return RP_HP_OK;
+    hp_checkModel(model, eth_mac, &g_is_valid);
+    return result;
 }
 
 profiles_t* hp_cmn_GetLoadedProfile() {
