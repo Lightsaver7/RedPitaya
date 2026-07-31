@@ -672,12 +672,14 @@
 
     BA.startFreq = function(new_params) {
         var param_name = "BA_START_FREQ"
+        $("#BA_START_FREQ").attr("min",new_params['BA_START_FREQ'].min);
         $("#BA_START_FREQ").attr("max",new_params['BA_START_FREQ'].max);
         BA.setValue(param_name,new_params)
     }
 
     BA.endFreq = function(new_params) {
         var param_name = "BA_END_FREQ"
+        $("#BA_END_FREQ").attr("min",new_params['BA_END_FREQ'].min);
         $("#BA_END_FREQ").attr("max",new_params['BA_END_FREQ'].max);
         BA.setValue(param_name,new_params)
     }
@@ -719,12 +721,24 @@
 
     BA.setOutAmpl = function(new_params) {
         var param_name = "BA_AMPLITUDE"
+        $("#"+param_name).attr("max",new_params[param_name].max);
         BA.setValue(param_name,new_params)
     }
 
     BA.setDCBias = function(new_params) {
         var param_name = "BA_DC_BIAS"
         BA.setValue(param_name,new_params)
+    }
+
+    BA.setIsDCBias = function(new_params) {
+        var param_name = 'BA_IS_DC_BIAS'
+        if (new_params[param_name].value == false){
+            var nodes = document.getElementsByClassName("out_bias_block");
+            [...nodes].forEach((element, index, array) => {
+                                    element.parentNode.removeChild(element);
+            });
+            $('.out_ampl_block').removeClass('col-xs-6').addClass('col-xs-12');
+        }
     }
 
     BA.setInThreshold = function(new_params) {
@@ -809,6 +823,16 @@
         var radios = $('input[name="' + param_name + '"]');
         radios.closest('.btn-group').children('.btn.active').removeClass('active');
         radios.eq([+CLIENT.params.orig[param_name].value]).prop('checked', true).parent().addClass('active');
+    }
+
+    BA.setIsGain = function(new_params){
+        var param_name = 'BA_IS_GAIN'
+        if (new_params[param_name].value == false){
+            var nodes = document.getElementsByClassName("in_gain_block");
+            [...nodes].forEach((element, index, array) => {
+                                    element.parentNode.removeChild(element);
+            });
+        }
     }
 
     BA.setACDC = function(new_params){
@@ -945,6 +969,7 @@
     BA.param_callbacks["BA_AVERAGING"] = BA.setAverage;
     BA.param_callbacks["BA_AMPLITUDE"] = BA.setOutAmpl;
     BA.param_callbacks["BA_DC_BIAS"] = BA.setDCBias;
+    BA.param_callbacks["BA_IS_DC_BIAS"] = BA.setIsDCBias;
     BA.param_callbacks["BA_INPUT_THRESHOLD"] = BA.setInThreshold;
 
     BA.param_callbacks["BA_GAIN_MIN"] = BA.setGainMin;
@@ -956,6 +981,7 @@
 
 
     BA.param_callbacks["BA_IN_GAIN"] = BA.setGain;
+    BA.param_callbacks["BA_IS_GAIN"] = BA.setIsGain;
     BA.param_callbacks["BA_IN_AC_DC"] = BA.setACDC;
     BA.param_callbacks["BA_PROBE"] = BA.setProbe;
 

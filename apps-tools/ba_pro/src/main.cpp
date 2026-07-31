@@ -45,17 +45,23 @@ enum {
     BA_START_CALIB_PROCESS = 9
 } ba_status_t;
 
+const float LEVEL_AMPS_MAX = outAmpMax();
+const float LEVEL_AMPS_DEF = outAmpDef();
+
 // Control parameters
 CIntParameter ba_status("BA_STATUS", CBaseParameter::RW, 0, 0, 0, 100);
 
 //Parameters
-CIntParameter ba_start_freq("BA_START_FREQ", CBaseParameter::RW, 1000, 0, 1, getMaxADC(), CONFIG_VAR);
-CIntParameter ba_end_freq("BA_END_FREQ", CBaseParameter::RW, 10000, 0, 2, getMaxADC(), CONFIG_VAR);
+CIntParameter ba_start_freq("BA_START_FREQ", CBaseParameter::RW, std::max<int>(1000, outFreqMin()), 0, outFreqMin(), getMaxADC(), CONFIG_VAR);
+CIntParameter ba_end_freq("BA_END_FREQ", CBaseParameter::RW, getMaxADC(), 0, outFreqMin(), getMaxADC(), CONFIG_VAR);
 CIntParameter ba_steps("BA_STEPS", CBaseParameter::RW, 25, 0, 2, CH_SIGNAL_SIZE_DEFAULT, CONFIG_VAR);
 CIntParameter ba_periods_number("BA_PERIODS_NUMBER", CBaseParameter::RW, 8, 0, 1, 8, CONFIG_VAR);
 CIntParameter ba_averaging("BA_AVERAGING", CBaseParameter::RW, 1, 0, 1, 10, CONFIG_VAR);
-CFloatParameter ba_amplitude("BA_AMPLITUDE", CBaseParameter::RW, 1, 0, 0, 2000000, CONFIG_VAR);
-CFloatParameter ba_dc_bias("BA_DC_BIAS", CBaseParameter::RW, 0, 0, -1, 1, CONFIG_VAR);
+
+CFloatParameter ba_amplitude("BA_AMPLITUDE", CBaseParameter::RW, LEVEL_AMPS_DEF, 0, 0, LEVEL_AMPS_MAX, CONFIG_VAR);
+CFloatParameter ba_dc_bias("BA_DC_BIAS", CBaseParameter::RW, 0, 0, -LEVEL_AMPS_MAX, LEVEL_AMPS_MAX, CONFIG_VAR);
+CBooleanParameter isDCBias("BA_IS_DC_BIAS", CBaseParameter::RO, isGenBias(), 0);
+
 CFloatParameter ba_gain_min("BA_GAIN_MIN", CBaseParameter::RW, -30, 0, -100, 100, CONFIG_VAR);
 CFloatParameter ba_gain_max("BA_GAIN_MAX", CBaseParameter::RW, 10, 0, -100, 100, CONFIG_VAR);
 CFloatParameter ba_phase_min("BA_PHASE_MIN", CBaseParameter::RW, -90, 0, -90, 90, CONFIG_VAR);
@@ -68,6 +74,7 @@ CBooleanParameter ba_show_all("BA_SHOW_ALL", CBaseParameter::RW, true, 0, CONFIG
 CIntParameter ba_logic_mode("BA_LOGIC_MODE", CBaseParameter::RW, 0, 0, 0, 10, CONFIG_VAR);
 
 CIntParameter inGain("BA_IN_GAIN", CBaseParameter::RW, RP_LOW, 0, 0, 1, CONFIG_VAR);
+CBooleanParameter isGain("BA_IS_GAIN", CBaseParameter::RO, rp_HPGetFastADCIsLV_HVOrDefault(), 0);
 CIntParameter inAC_DC("BA_IN_AC_DC", CBaseParameter::RW, RP_DC, 0, 0, 1, CONFIG_VAR);
 CIntParameter inProbe("BA_PROBE", CBaseParameter::RW, 1, 0, 0, 2000, CONFIG_VAR);
 
@@ -182,11 +189,135 @@ auto getModelS() -> std::string {
     return "Z10";
 }
 
+auto isGenBias() -> bool {
+    rp_HPeModels_t c = STEM_125_14_v1_0;
+    if (rp_HPGetModel(&c) != RP_HP_OK) {
+        ERROR_LOG("Can't get board model");
+    }
+
+    switch (c) {
+        case STEM_122_16SDR_v1_0:
+        case STEM_122_16SDR_v1_1:
+            return false;
+        default:;
+    }
+    return true;
+}
+
+auto outFreqMin() -> int {
+    static auto freq = rp_HPGetGenMinSpeedHzOrDefault();
+    return freq;
+}
+
+auto outFreqMax() -> int {
+    static auto freq = rp_HPGetGenMaxSpeedHzOrDefault();
+    return freq;
+}
+
+auto outAmpDef() -> float {
+    static auto model = getModel();
+    switch (model) {
+        case STEM_125_10_v1_0:
+        case STEM_125_14_v1_0:
+        case STEM_125_14_v1_1:
+        case STEM_125_14_LN_v1_1:
+        case STEM_125_14_LN_BO_v1_1:
+        case STEM_125_14_LN_CE1_v1_1:
+        case STEM_125_14_LN_CE2_v1_1:
+        case STEM_125_14_Z7020_v1_0:
+        case STEM_125_14_Z7020_LN_v1_1:
+        case STEM_125_14_v2_0:
+        case STEM_125_14_BO_v2_0:
+        case STEM_125_14_Pro_v2_0:
+        case STEM_125_14_Pro_BO_v2_0:
+        case STEM_125_14_Z7020_Pro_v1_0:
+        case STEM_125_14_Z7020_Pro_v2_0:
+        case STEM_125_14_Z7020_Pro_BO_v2_0:
+        case STEM_125_14_Z7020_Ind_v2_0:
+        case STEM_125_14_Z7020_LL_v1_1:
+        case STEM_125_14_Z7020_LL_v1_2:
+        case STEM_65_16_Z7020_LL_v1_1:
+        case STEM_65_16_Z7020_TI_v1_3:
+        case STEM_125_14_Z7020_TI_v1_3:
+            return 0.9;
+        case STEM_122_16SDR_v1_0:
+        case STEM_122_16SDR_v1_1:
+            return 0.4;
+        case STEM_125_14_Z7020_4IN_v1_0:
+        case STEM_125_14_Z7020_4IN_v1_2:
+        case STEM_125_14_Z7020_4IN_v1_3:
+        case STEM_125_14_Z7020_4IN_BO_v1_3:
+            return 0.9;
+        case STEM_250_12_v1_0:
+        case STEM_250_12_v1_1:
+        case STEM_250_12_v1_2:
+        case STEM_250_12_v1_2a:
+        case STEM_250_12_v1_2b:
+        case STEM_250_12_120:
+            return 0.9;
+        default: {
+            ERROR_LOG("Unknown model: %d.", model);
+            return 0;
+        }
+    }
+}
+
+auto outAmpMax() -> float {
+    static auto model = getModel();
+    switch (model) {
+        case STEM_125_10_v1_0:
+        case STEM_125_14_v1_0:
+        case STEM_125_14_v1_1:
+        case STEM_125_14_LN_v1_1:
+        case STEM_125_14_LN_BO_v1_1:
+        case STEM_125_14_LN_CE1_v1_1:
+        case STEM_125_14_LN_CE2_v1_1:
+        case STEM_125_14_Z7020_v1_0:
+        case STEM_125_14_Z7020_LN_v1_1:
+            return 1;
+        case STEM_125_14_v2_0:
+        case STEM_125_14_BO_v2_0:
+        case STEM_125_14_Pro_v2_0:
+        case STEM_125_14_Pro_BO_v2_0:
+        case STEM_125_14_Z7020_Pro_v1_0:
+        case STEM_125_14_Z7020_Pro_v2_0:
+        case STEM_125_14_Z7020_Pro_BO_v2_0:
+        case STEM_125_14_Z7020_Ind_v2_0:
+            return 2;
+        case STEM_125_14_Z7020_LL_v1_1:
+        case STEM_125_14_Z7020_LL_v1_2:
+        case STEM_65_16_Z7020_LL_v1_1:
+        case STEM_65_16_Z7020_TI_v1_3:
+        case STEM_125_14_Z7020_TI_v1_3:
+            return 2;
+        case STEM_122_16SDR_v1_0:
+        case STEM_122_16SDR_v1_1:
+            return 0.5;
+        case STEM_125_14_Z7020_4IN_v1_0:
+        case STEM_125_14_Z7020_4IN_v1_2:
+        case STEM_125_14_Z7020_4IN_v1_3:
+        case STEM_125_14_Z7020_4IN_BO_v1_3:
+            return 1;
+        case STEM_250_12_v1_0:
+        case STEM_250_12_v1_1:
+        case STEM_250_12_v1_2:
+        case STEM_250_12_v1_2a:
+        case STEM_250_12_v1_2b:
+        case STEM_250_12_120:
+            return 10.0;
+        default: {
+            ERROR_LOG("Unknown model: %d.", model);
+            return 0;
+        }
+    }
+}
+
 auto getMaxADC() -> uint32_t {
     uint32_t max = 0;
+    uint32_t freq = outFreqMax();
 
     if (rp_HPGetFastADCMaxLowPassFilterHz(&max) == RP_HP_OK) {
-        return max;
+        return std::min(max, freq);
     }
 
     ERROR_LOG("Can't get ADC low-pass filter value")

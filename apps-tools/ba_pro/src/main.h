@@ -50,6 +50,11 @@ int rp_app_exit(void);
 
 auto getModelS() -> std::string;
 auto getMaxADC() -> uint32_t;
+auto outFreqMin() -> int;
+auto outFreqMax() -> int;
+auto outAmpDef() -> float;
+auto outAmpMax() -> float;
+auto isGenBias() -> bool;
 
 void updateParametersByConfig();
 

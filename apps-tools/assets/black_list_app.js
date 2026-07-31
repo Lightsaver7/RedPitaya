@@ -77,7 +77,6 @@
         if (model == 3 || model == 4) {
             for (i = listOfapplications.length - 1; i >= 0; i -= 1) {
                 if (listOfapplications[i]["id"] === 'marketplace' ||
-                    listOfapplications[i]["id"] === 'ba_pro' ||
                     listOfapplications[i]["id"] === 'lcr_meter' ||
                     listOfapplications[i]["id"] === 'pyrpl' ||
                     listOfapplications[i]["id"] === 'calib_app' ||
