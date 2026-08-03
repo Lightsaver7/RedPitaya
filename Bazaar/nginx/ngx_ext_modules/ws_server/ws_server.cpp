@@ -1,9 +1,5 @@
 #include "rp_websocket_server.h"
 
-#include "libjson/JSONOptions.h"
-#include "libjson/_internal/Source/JSONGlobals.h"
-#include "libjson/libjson.h"
-
 #include <fstream>
 #include <iostream>
 #include <sstream>

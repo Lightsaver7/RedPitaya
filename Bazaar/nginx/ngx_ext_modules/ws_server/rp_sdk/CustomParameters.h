@@ -27,16 +27,7 @@ class CCustomParameter : public CParameter<Type, Type> {
           m_NeedSend(false),
           m_Tag(_tag) {}
 
-    ~CCustomParameter() {
-        /*		CDataManager * man = CDataManager::GetInstance();
-		if(man)
-			man->UnRegisterParam(this->GetName());*/
-        if (m_NeedUnregister) {
-            CDataManager* man = CDataManager::GetInstance();
-            if (man)
-                man->UnRegisterParam(this->GetName());
-        }
-    }
+    ~CCustomParameter() {}
 
     JSONNode GetJSONObject() {
         JSONNode n(JSON_NODE);
@@ -128,11 +119,7 @@ class CCustomSignal : public CParameter<Type, std::vector<Type>> {
     CCustomSignal(std::string _name, CBaseParameter::AccessMode _access_mode, int _size, Type _def_value)
         : CParameter<Type, std::vector<Type>>(CParameter<Type, Type>::SIGNAL, _name, _access_mode, std::vector<Type>(_size, _def_value)), m_Dirty(true) {}
 
-    ~CCustomSignal() {
-        /*		CDataManager * man = CDataManager::GetInstance();
-		if(man)
-			man->UnRegisterSignal(this->GetName());*/
-    }
+    ~CCustomSignal() {}
 
     JSONNode GetJSONObject() {
         JSONNode n(JSON_NODE);
@@ -199,11 +186,7 @@ class CCustomBase64Signal : public CParameter<Type, std::vector<Type>> {
     CCustomBase64Signal(std::string _name, CBaseParameter::AccessMode _access_mode, int _size, Type _def_value)
         : CParameter<Type, std::vector<Type>>(CParameter<Type, Type>::SIGNAL, _name, _access_mode, std::vector<Type>(_size, _def_value)), m_Dirty(true) {}
 
-    ~CCustomBase64Signal() {
-        /*		CDataManager * man = CDataManager::GetInstance();
-		if(man)
-			man->UnRegisterSignal(this->GetName());*/
-    }
+    ~CCustomBase64Signal() {}
 
     JSONNode GetJSONObject() {
         JSONNode n(JSON_NODE);
@@ -272,11 +255,7 @@ class CCustomBinarySignal : public CParameter<Type, std::vector<Type>> {
     CCustomBinarySignal(std::string _name, CBaseParameter::AccessMode _access_mode, int _size, Type _def_value)
         : CParameter<Type, std::vector<Type>>(CParameter<Type, Type>::BIN_SIGNAL, _name, _access_mode, std::vector<Type>(_size, _def_value)), m_Dirty(true) {}
 
-    ~CCustomBinarySignal() {
-        /*		CDataManager * man = CDataManager::GetInstance();
-		if(man)
-			man->UnRegisterSignal(this->GetName());*/
-    }
+    ~CCustomBinarySignal() {}
 
     JSONNode GetJSONObject() {
         JSONNode n(JSON_NODE);

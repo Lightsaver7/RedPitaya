@@ -1,6 +1,6 @@
 #pragma once
 
-#include <libjson.h>
+#include "rp_json.h"
 
 class CBaseParameter  //base class for parameter and signal
 {

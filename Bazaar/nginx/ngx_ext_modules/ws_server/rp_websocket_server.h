@@ -6,7 +6,7 @@
 #include <fstream>
 #include <set>
 
-#include "libjson/_internal/Source/JSONNode.h"
+#include "rp_sdk/rp_json.h"
 #include "ws_server.h"
 
 //#define ENABLE_LOG

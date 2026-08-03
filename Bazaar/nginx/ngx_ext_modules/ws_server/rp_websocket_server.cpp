@@ -3,10 +3,6 @@
 #include <websocketpp/common/thread.hpp>
 #include <websocketpp/message_buffer/message.hpp>
 
-#include "libjson/JSONOptions.h"
-#include "libjson/_internal/Source/JSONGlobals.h"
-#include "libjson/libjson.h"
-
 #include <math.h>
 #include <unistd.h>
 #include <chrono>

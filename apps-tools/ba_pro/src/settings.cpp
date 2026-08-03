@@ -130,7 +130,7 @@ auto configSetWithList(const std::string& _directory, const std::string& _filena
                 }
             }
 
-            stream << root_node.write();
+            stream << root_node.write_formatted();
             stream.close();
             return true;
         }
@@ -176,7 +176,7 @@ auto configSet(const std::string& _directory, const std::string& _filename) -> b
                 }
             }
 
-            stream << root_node.write();
+            stream << root_node.write_formatted();
             stream.close();
             return true;
         }

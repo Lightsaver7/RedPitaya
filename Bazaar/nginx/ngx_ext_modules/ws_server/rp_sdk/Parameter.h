@@ -12,6 +12,7 @@ class CParameter : public CBaseParameter  //class for parameter and signal
    public:
     CParameter(ParameterType pType, std::string _name, AccessMode _access_mode, ValueT _value, int _fpga_update, T _min, T _max);  //parameter constructor
     CParameter(ParameterType pType, std::string _name, AccessMode _access_mode, const ValueT& _value);                             //signal constructor
+    virtual ~CParameter();
 
     const char* GetName() const;
     virtual void Set(const ValueT& _value) = 0;  //set the m_Value.value
@@ -66,6 +67,21 @@ inline CParameter<T, ValueT>::CParameter(ParameterType pType, std::string _name,
     CDataManager* man = CDataManager::GetInstance();
     if (man)
         man->RegisterSignal(this);
+}
+
+template <typename T, typename ValueT>
+inline CParameter<T, ValueT>::~CParameter() {
+    if (!CDataManager::IsAlive())
+        return;
+
+    CDataManager* man = CDataManager::GetInstance();
+    if (!man)
+        return;
+
+    if (this->GetParameterType() == CBaseParameter::PARAM)
+        man->UnRegisterParam(static_cast<CBaseParameter*>(this));
+    else
+        man->UnRegisterSignal(static_cast<CBaseParameter*>(this));
 }
 
 template <typename T, typename ValueT>

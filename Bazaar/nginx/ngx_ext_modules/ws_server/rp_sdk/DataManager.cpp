@@ -1,4 +1,6 @@
 #include "DataManager.h"
+#include <stdarg.h>
+#include <algorithm>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <cstring>
@@ -88,6 +90,16 @@ inline bool CDataManager::NeedSend(const CBaseParameter& param) const {
            (mode == CBaseParameter::AccessMode::RWSA || param.NeedSend());
 }
 
+static bool g_dataManagerAlive = false;
+
+bool CDataManager::IsAlive() {
+    return g_dataManagerAlive;
+}
+
+CDataManager::~CDataManager() {
+    g_dataManagerAlive = false;
+}
+
 CDataManager::CDataManager()
     : m_params(),
       m_signals(),
@@ -99,7 +111,9 @@ CDataManager::CDataManager()
       m_isGzip(true),
       m_isSignalsGzip(true),
       m_isBinarySignalsGzip(false),
-      m_logEnable(false) {}
+      m_logEnable(false) {
+    g_dataManagerAlive = true;
+}
 
 CDataManager* CDataManager::GetInstance() {
     static CDataManager instance;
@@ -118,6 +132,24 @@ void CDataManager::RegisterSignal(CBaseParameter* _signal) {
     dbg_printf("Registered signals: %d\n", m_signals.size());
 }
 
+void CDataManager::UnRegisterParam(CBaseParameter* _param) {
+    for (std::vector<CBaseParameter*>::iterator it = m_params.begin(); it != m_params.end(); ++it) {
+        if (*it == _param) {
+            m_params.erase(it);
+            return;
+        }
+    }
+}
+
+void CDataManager::UnRegisterSignal(CBaseParameter* _signal) {
+    for (std::vector<CBaseParameter*>::iterator it = m_signals.begin(); it != m_signals.end(); ++it) {
+        if (*it == _signal) {
+            m_signals.erase(it);
+            return;
+        }
+    }
+}
+
 void CDataManager::UnRegisterParam(const char* _name) {
     for (std::vector<CBaseParameter*>::iterator it = m_params.begin(); it != m_params.end(); ++it) {
         if (strcmp((*it)->GetName(), _name) == 0) {
@@ -129,7 +161,7 @@ void CDataManager::UnRegisterParam(const char* _name) {
 }
 
 void CDataManager::UnRegisterSignal(const char* _name) {
-    for (std::vector<CBaseParameter*>::iterator it = m_signals.begin(); it != m_params.end(); ++it) {
+    for (std::vector<CBaseParameter*>::iterator it = m_signals.begin(); it != m_signals.end(); ++it) {
         if (strcmp((*it)->GetName(), _name) == 0) {
             m_signals.erase(it);
             dbg_printf("UnRegisterSignal: %s\n", _name);
@@ -465,7 +497,7 @@ extern "C" int ws_gzip(int type, const void* _in, void* _out, size_t* _size) {
             if (type == 0 || type == 1)
                 Gziping((const char*)_in, *buff);
             if (type == 2) {
-                GzipingBin((const byte*)_in, *_size, *buff);
+                GzipingBin((const uint8_t*)_in, *_size, *buff);
             }
             *_size = buff->size();
             return 0;

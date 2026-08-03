@@ -12,6 +12,7 @@ struct Data {
 class CDataManager {
    private:
     CDataManager();
+    ~CDataManager();
     CDataManager(const CDataManager&);
     CDataManager& operator=(CDataManager&);
 
@@ -53,6 +54,10 @@ class CDataManager {
 
     void UnRegisterParam(const char* _name);
     void UnRegisterSignal(const char* _name);
+    void UnRegisterParam(CBaseParameter* _param);
+    void UnRegisterSignal(CBaseParameter* _signal);
+
+    static bool IsAlive();
 
     std::string GetParamsJson();     //get all parameters in JSON-formatted string
     std::string GetSignalsJson();    //get all signals in JSON-formatted string

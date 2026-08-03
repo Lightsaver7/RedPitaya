@@ -1,23 +1,9 @@
-LIBJSON_DIR=../../../tools/libjson
 CXX=$(CROSS_COMPILE)g++
-CXXFLAGS=-c -Wall -Os -s -static -Wno-psabi -std=c++17 -Iwebsocketpp $(SYSROOT) -I$(LIBJSON_DIR) -I$(LIBJSON_DIR)/.. -L. -lboost_system -DWEBSOCKETPP_STRICT_MASKING -Wno-reorder -Wno-cpp
+CXXFLAGS=-c -Wall -Os -s -static -Wno-psabi -std=c++17 -Iwebsocketpp $(SYSROOT) -L. -lboost_system -DWEBSOCKETPP_STRICT_MASKING -Wno-reorder -Wno-cpp
 
 SOURCES= rp_websocket_server.cpp \
 	ws_server.cpp \
-	$(LIBJSON_DIR)/_internal/Source/internalJSONNode.cpp \
-	$(LIBJSON_DIR)/_internal/Source/JSONChildren.cpp \
-	$(LIBJSON_DIR)/_internal/Source/JSONDebug.cpp \
-	$(LIBJSON_DIR)/_internal/Source/JSONIterators.cpp \
-	$(LIBJSON_DIR)/_internal/Source/JSONMemory.cpp \
-	$(LIBJSON_DIR)/_internal/Source/JSONNode_Mutex.cpp \
-	$(LIBJSON_DIR)/_internal/Source/JSONNode.cpp \
-	$(LIBJSON_DIR)/_internal/Source/JSONWorker.cpp \
-	$(LIBJSON_DIR)/_internal/Source/JSONWriter.cpp \
-	$(LIBJSON_DIR)/_internal/Source/libjson.cpp \
-	$(LIBJSON_DIR)/_internal/Source/JSONValidator.cpp \
-	$(LIBJSON_DIR)/_internal/Source/JSONStream.cpp \
-	$(LIBJSON_DIR)/_internal/Source/JSONAllocator.cpp \
-    	$(LIBJSON_DIR)/_internal/Source/JSONPreparse.cpp \
+	rp_sdk/rp_json.cpp
 
 OBJECTS=$(SOURCES:.cpp=.o)
 LIB=libws_server.a
