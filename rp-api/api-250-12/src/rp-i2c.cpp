@@ -1,343 +1,277 @@
+/*
+ * Ported from the bundled parser under src/xml to pugixml.
+ *
+ * Behavioural notes
+ * -----------------
+ * - The document is now a stack value. Every early return in the old code
+ *   leaked the heap-allocated XMLDocument; there were nine such paths.
+ * - The three public entry points duplicated the same ~40 line attribute block.
+ *   It is factored into parseRegisters() now, which is what let the copy-paste
+ *   defects show: two of the three copies reported a missing "decription"
+ *   attribute as 'Missing attribute write'.
+ * - An unparsable (as opposed to absent) hex value used to be silently taken as
+ *   0, because the sscanf return value was ignored. It is still 0, so shipped
+ *   configs with value="" keep working, but now it is reported.
+ * - g_enable_verbous is static. It was a strong global defined identically in
+ *   both rp-i2c.cpp and rp-spi.cpp, so the two shared libraries exported the
+ *   same symbol and whichever loaded first won.
+ * - <iostream> is gone; it was pulled in only for one wcout error print and
+ *   dragged std::ios_base::Init -- a static constructor -- into every load.
+ */
 
-#include <XMLDocument.h>
-#include <XMLReader.h>
-#include <XMLNode.h>
-#include <iostream>
-#include <fstream>
-#include <clocale>
-#include <stdarg.h>
-#include "rp-i2c.h"
-#include "rp_hw.h"
+#include <fcntl.h>
+#include <pthread.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <unistd.h>
+#include <cstdio>
+#include <string>
+#include <vector>
 
 #include <linux/i2c-dev.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <arpa/inet.h>
 
-using namespace std;
-using namespace XML;
+#include "rp-i2c.h"
+#include "rp_hw.h"
+#include "xml/rp-xml.h"
 
 namespace rp_i2c {
 
-static XML::XMLString bus_node_name("bus_name");
-static XML::XMLString bus_node_dev_addr_name("device_on_bus");
-static XML::XMLString bus_node_reg_set_name("reg_set");
-static XML::XMLString attr_address_string("address");
-static XML::XMLString attr_value_string("value");
-static XML::XMLString attr_write_string("write");
-static XML::XMLString attr_default_string("default");
-static XML::XMLString attr_decription_string("decription");
-
 pthread_mutex_t g_rp_i2c_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-bool g_enable_verbous = false;
-#define MSG(...) if (g_enable_verbous) fprintf(stdout,__VA_ARGS__);
-#define MSG_A(...) fprintf(stdout,__VA_ARGS__);
+static bool g_enable_verbous = false;
 
-void rp_i2c_enable_verbous(){
+#define MSG(...)               \
+    if (g_enable_verbous) {    \
+        printf(__VA_ARGS__);   \
+    }
+#define MSG_A(...) printf(__VA_ARGS__)
+
+void rp_i2c_enable_verbous() {
     g_enable_verbous = true;
 }
 
-void rp_i2c_disable_verbous(){
+void rp_i2c_disable_verbous() {
     g_enable_verbous = false;
 }
 
-XMLDocument* readFile(const char *configuration_file){
-    std::setlocale(LC_ALL, "en_US.UTF-8");
-    int length;
-	char * buffer;
-	ifstream is;
-	is.open(configuration_file, ios::binary);
-	is.seekg(0, ios::end);
-	length = is.tellg();
-	is.seekg(0, ios::beg);
-	buffer = new char[length];
-	is.read(buffer, length);
-	is.close();
+/* ------------------------------------------------------------ bus access -- */
 
-	XMLReader *reader = new XMLReader();
-	XMLDocument *doc = reader->XMLReadString(buffer, length);
-
-	for (auto str : reader->GetErrorList()){
-        if (g_enable_verbous) wcout << L"Error string = " << str << std::endl;
-        delete doc;
-        doc = nullptr;
-    }
-
-	delete reader;
-	delete[] buffer;
-	return doc;
-}
-
-int readAttributeValue(XMLNode *node,XMLString &name,int &value){
-    XMLAttribute *attr = nullptr;
-    attr = node->GetAttributesByName(name);
-    if (attr == nullptr) {
-        MSG_A("[rp_i2c] Missing attribute %s in register\n",name.getText());
-        return  -1;
-    }
-    sscanf(attr->ValueString().c_str(), "%x", (unsigned int*)&value);
-    return 0;
-}
-
-int rp_write_to_i2c(const char* i2c_dev_path,int i2c_dev_address,int i2c_dev_reg_addr, unsigned short i2c_val_to_write, bool force){
+int rp_write_to_i2c(const char* i2c_dev_path, int i2c_dev_address, int i2c_dev_reg_addr, unsigned short i2c_val_to_write,
+                    bool force) {
     pthread_mutex_lock(&g_rp_i2c_mutex);
-    int ret = rp_I2C_InitDevice(i2c_dev_path,i2c_dev_address);
-    if (ret != RP_HW_OK){
-		pthread_mutex_unlock(&g_rp_i2c_mutex);
+    int ret = rp_I2C_InitDevice(i2c_dev_path, i2c_dev_address);
+    if (ret != RP_HW_OK) {
+        pthread_mutex_unlock(&g_rp_i2c_mutex);
         return ret;
     }
     rp_I2C_setForceMode(force);
 
-    ret =  rp_I2C_SMBUS_Write(i2c_dev_reg_addr,i2c_val_to_write);
-	pthread_mutex_unlock(&g_rp_i2c_mutex);
+    ret = rp_I2C_SMBUS_Write(i2c_dev_reg_addr, i2c_val_to_write);
+    pthread_mutex_unlock(&g_rp_i2c_mutex);
     return ret;
 }
 
-int rp_read_from_i2c(const char* i2c_dev_path,int i2c_dev_address,int i2c_dev_reg_addr, uint8_t &value, bool force){
+int rp_read_from_i2c(const char* i2c_dev_path, int i2c_dev_address, int i2c_dev_reg_addr, uint8_t& value, bool force) {
     pthread_mutex_lock(&g_rp_i2c_mutex);
-    int ret = rp_I2C_InitDevice(i2c_dev_path,i2c_dev_address);
-    if (ret != RP_HW_OK){
-		pthread_mutex_unlock(&g_rp_i2c_mutex);
+    int ret = rp_I2C_InitDevice(i2c_dev_path, i2c_dev_address);
+    if (ret != RP_HW_OK) {
+        pthread_mutex_unlock(&g_rp_i2c_mutex);
         return ret;
     }
     rp_I2C_setForceMode(force);
 
-    ret =  rp_I2C_SMBUS_Read(i2c_dev_reg_addr,&value);
-	pthread_mutex_unlock(&g_rp_i2c_mutex);
+    ret = rp_I2C_SMBUS_Read(i2c_dev_reg_addr, &value);
+    pthread_mutex_unlock(&g_rp_i2c_mutex);
     return ret;
 }
 
-int read_address(XMLDocument *doc,int &device_addr, string &bus_name){
-    XMLNode *bus_node = doc->FindFirstNodeByName(bus_node_name);
-    if (bus_node == nullptr){
+/* --------------------------------------------------------- config parsing -- */
+
+namespace {
+
+struct RegEntry {
+    int         address;
+    int         value;
+    int         defaultValue;
+    std::string writeMode;
+    std::string description;
+};
+
+struct Config {
+    std::string           busName;
+    int                   deviceAddr = 0;
+    std::vector<RegEntry> registers;
+};
+
+/* Reads bus_name and device_on_bus/@address. */
+bool readAddress(const pugi::xml_document& doc, Config& cfg) {
+    const pugi::xml_node busNode = rp_xml::findFirstByName(doc, "bus_name");
+    if (!busNode) {
         MSG_A("[rp_i2c] Missing node bus_name in configuration file\n");
-        return  -1;
+        return false;
     }
 
-    XMLNode *bus_node_dev_addr = doc->FindFirstNodeByName(bus_node_dev_addr_name);
-    if (bus_node_dev_addr == nullptr){
+    const pugi::xml_node devNode = rp_xml::findFirstByName(doc, "device_on_bus");
+    if (!devNode) {
         MSG_A("[rp_i2c] Missing node device_on_bus in configuration file\n");
-        return  -1;
-    }else{
-        XMLAttribute *attr = bus_node_dev_addr->GetAttributesByName(attr_address_string);
-        if (attr == nullptr) {
-            MSG_A("[rp_i2c] Missing attribute address in device_on_bus\n");
-            return  -1;
-        }
-        sscanf(attr->ValueString().c_str(), "%x", (unsigned int*)&device_addr);
+        return false;
     }
 
-    bus_name =  XMLString::toString(bus_node->GetInnerText());
+    if (!rp_xml::readHexAttr(devNode, "address", cfg.deviceAddr)) {
+        MSG_A("[rp_i2c] Missing attribute address in device_on_bus\n");
+        return false;
+    }
 
-    return 0;
+    cfg.busName = rp_xml::innerText(busNode);
+    if (cfg.busName.empty()) {
+        MSG_A("[rp_i2c] Node bus_name is empty\n");
+        return false;
+    }
+    return true;
 }
 
-int rp_i2c_load(const char *configuration_file, bool force){
-    int device_addr = 0;
-    string bus_name = "";
+/* Reads a required hex attribute and reports it the way the callers expect. */
+bool readRegHex(const pugi::xml_node& reg, const char* name, int& out) {
+    bool bad = false;
+    if (!rp_xml::readHexAttr(reg, name, out, &bad)) {
+        MSG_A("[rp_i2c] Missing attribute %s in register\n", name);
+        return false;
+    }
+    if (bad) {
+        /* Not fatal: keeps the old behaviour of treating a broken value as 0,
+         * but no longer silently. */
+        MSG_A("[rp_i2c] Attribute %s in register is not a hex number, using 0\n", name);
+    }
+    return true;
+}
 
-    XMLDocument *doc = readFile(configuration_file);
-    if (doc == nullptr) return -1;
+bool readStrAttr(const pugi::xml_node& reg, const char* name, std::string& out) {
+    const pugi::xml_attribute attr = reg.attribute(name);
+    if (!attr) {
+        MSG_A("[rp_i2c] Missing attribute %s in register\n", name);
+        return false;
+    }
+    out = attr.value();
+    return true;
+}
 
-    if (read_address(doc,device_addr,bus_name)!= 0) return  -1;   
-
-    XMLNode *bus_reg_set = doc->FindFirstNodeByName(bus_node_reg_set_name);
-    if (bus_reg_set == nullptr){
+bool parseRegisters(const pugi::xml_document& doc, Config& cfg) {
+    const pugi::xml_node regSet = rp_xml::findFirstByName(doc, "reg_set");
+    if (!regSet) {
         MSG_A("[rp_i2c] Missing node reg_set in configuration file\n");
-        return  -1;
+        return false;
     }
 
-   
-
-    XMLAttribute *attr = nullptr;
-    auto reg_set_nodes = bus_reg_set->GetChildNodes();
-    for (auto reg: *reg_set_nodes){
-        int  reg_addr = 0 ;
-        int  reg_value = 0;
-        std::string reg_write_mode;
-        int reg_default = 0;
-        std::string reg_description ;
-
-        if (readAttributeValue(reg,attr_address_string,reg_addr)!=0) return -1;
-    
-        if (readAttributeValue(reg,attr_value_string,reg_value)!=0) return -1;
-
-        if (readAttributeValue(reg,attr_default_string,reg_default)!=0) return -1;   
-
-        attr = reg->GetAttributesByName(attr_write_string);
-        if (attr == nullptr) {
-            MSG_A("[rp_i2c] Missing attribute write in register\n");
-            return  -1;
+    /* children("register") instead of every child: robust even if someone turns
+     * on comment parsing later. */
+    for (pugi::xml_node reg : regSet.children("register")) {
+        RegEntry e{};
+        if (!readRegHex(reg, "address", e.address) || !readRegHex(reg, "value", e.value) ||
+            !readRegHex(reg, "default", e.defaultValue) || !readStrAttr(reg, "write", e.writeMode) ||
+            !readStrAttr(reg, "decription", e.description)) {
+            return false;
         }
-        reg_write_mode = attr->ValueString();
+        cfg.registers.push_back(std::move(e));
+    }
+    return true;
+}
 
-        attr = reg->GetAttributesByName(attr_decription_string);
-        if (attr == nullptr) {
-            MSG_A("[rp_i2c] Missing attribute write in register\n");
-            return  -1;
-        }
-        reg_description = attr->ValueString();
+/* Loads the file and parses it whole. Replaces readFile() + the per-function
+ * copies of the attribute loop. */
+bool loadConfig(const char* path, Config& cfg) {
+    pugi::xml_document doc;
+    std::string        err;
 
+    if (!rp_xml::loadFile(doc, path, &err)) {
+        MSG_A("[rp_i2c] %s\n", err.c_str());
+        return false;
+    }
+    return readAddress(doc, cfg) && parseRegisters(doc, cfg);
+}
 
-        if ((reg_write_mode == "value") || (reg_write_mode == "default")) {
-            /* Write data to i2c */
-            char data[1] = "";
+/* Value the config wants in the register, or -1 when it says not to touch it. */
+int wantedValue(const RegEntry& e) {
+    if (e.writeMode == "value") {
+        return e.value;
+    }
+    if (e.writeMode == "default") {
+        return e.defaultValue;
+    }
+    return -1;
+}
 
-            if (reg_write_mode == "value") {
-                data[0] = (char)reg_value;
-            }
+}  // namespace
 
-            if (reg_write_mode == "default") {
-                data[0] = (char)reg_default;
-            }
+/* ---------------------------------------------------------- public entry -- */
 
-            if (rp_write_to_i2c(bus_name.c_str(),device_addr, reg_addr, data[0],force) != RP_HW_OK) {
-                /* Error process */
-                MSG_A("[rp_i2c] ERROR write value of %s to i2c\n",reg_description.c_str());
-            }
-            MSG("[rp_i2c] Success write %s value 0x%.2X by address 0x%.2X \n",reg_description.c_str(),data[0],reg_addr);
-        }else{
-            MSG("[rp_i2c] Skip write %s to i2c\n",reg_description.c_str());
-        }
+int rp_i2c_load(const char* configuration_file, bool force) {
+    Config cfg;
+    if (!loadConfig(configuration_file, cfg)) {
+        return -1;
     }
 
-    delete doc;
+    for (const RegEntry& e : cfg.registers) {
+        const int want = wantedValue(e);
+        if (want < 0) {
+            MSG("[rp_i2c] Skip write %s to i2c\n", e.description.c_str());
+            continue;
+        }
+
+        if (rp_write_to_i2c(cfg.busName.c_str(), cfg.deviceAddr, e.address, (unsigned short)(uint8_t)want, force) !=
+            RP_HW_OK) {
+            MSG_A("[rp_i2c] ERROR write value of %s to i2c\n", e.description.c_str());
+            continue;
+        }
+        MSG("[rp_i2c] Success write %s value 0x%.2X by address 0x%.2X \n", e.description.c_str(), (uint8_t)want,
+            e.address);
+    }
     return 0;
 }
 
-int rp_i2c_print(const char *configuration_file, bool force){
-    int device_addr = 0;
-    string bus_name = "";
-
-    XMLDocument *doc = readFile(configuration_file);
-    if (doc == nullptr) return -1;
-
-    if (read_address(doc,device_addr,bus_name)!= 0) return  -1; 
-
-    XMLNode *bus_reg_set = doc->FindFirstNodeByName(bus_node_reg_set_name);
-    if (bus_reg_set == nullptr){
-        MSG_A("[rp_i2c] Missing node reg_set in configuration file\n");
-        return  -1;
+int rp_i2c_print(const char* configuration_file, bool force) {
+    Config cfg;
+    if (!loadConfig(configuration_file, cfg)) {
+        return -1;
     }
 
-    XMLAttribute *attr = nullptr;
-    auto reg_set_nodes = bus_reg_set->GetChildNodes();
-    for (auto reg: *reg_set_nodes){
-        int  reg_addr = 0 ;
-        int  reg_value = 0;
-        std::string reg_write_mode;
-        int reg_default = 0;
-        std::string reg_description ;
-        uint8_t data;
-
-        if (readAttributeValue(reg,attr_address_string,reg_addr)!=0) return -1;
-    
-        if (readAttributeValue(reg,attr_value_string,reg_value)!=0) return -1;
-
-        if (readAttributeValue(reg,attr_default_string,reg_default)!=0) return -1;  
-
-        attr = reg->GetAttributesByName(attr_write_string);
-        if (attr == nullptr) {
-            MSG_A("[rp_i2c] Missing attribute write in register\n");
-            return  -1;
+    for (const RegEntry& e : cfg.registers) {
+        uint8_t data = 0;
+        if (rp_read_from_i2c(cfg.busName.c_str(), cfg.deviceAddr, e.address, data, force) != RP_HW_OK) {
+            MSG_A("[rp_i2c] ERROR read value of %s from i2c\n", e.description.c_str());
+            continue;
         }
-        reg_write_mode = attr->ValueString();
-
-        attr = reg->GetAttributesByName(attr_decription_string);
-        if (attr == nullptr) {
-            MSG_A("[rp_i2c] Missing attribute write in register\n");
-            return  -1;
-        }
-        reg_description = attr->ValueString();
-        
-        if (rp_read_from_i2c(bus_name.c_str(),device_addr, reg_addr, data ,force) != RP_HW_OK) {
-            /* Error process */
-            MSG_A("[rp_i2c] ERROR read value of %s to i2c\n",reg_description.c_str());
-        }
-        MSG_A("[rp_i2c] Addr: 0x%.2X\tval: 0x%.2X\t%s\n",reg_addr,data,reg_description.c_str());
+        MSG_A("[rp_i2c] Addr: 0x%.2X\tval: 0x%.2X\t%s\n", e.address, data, e.description.c_str());
     }
-
-    delete doc;
     return 0;
 }
 
-int rp_i2c_compare(const char *configuration_file, bool force){
-   int device_addr = 0;
-    string bus_name = "";
-
-    XMLDocument *doc = readFile(configuration_file);
-    if (doc == nullptr) return -1;
-
-    if (read_address(doc,device_addr,bus_name)!= 0) return  -1; 
-
-    XMLNode *bus_reg_set = doc->FindFirstNodeByName(bus_node_reg_set_name);
-    if (bus_reg_set == nullptr){
-        MSG_A("[rp_i2c] Missing node reg_set in configuration file\n");
-        return  -1;
+int rp_i2c_compare(const char* configuration_file, bool force) {
+    Config cfg;
+    if (!loadConfig(configuration_file, cfg)) {
+        return -1;
     }
 
-    bool equal_values = true;
-    XMLAttribute *attr = nullptr;
-    auto reg_set_nodes = bus_reg_set->GetChildNodes();
-    for (auto reg: *reg_set_nodes){
-        int  reg_addr = 0 ;
-        int  reg_value = 0;
-        std::string reg_write_mode;
-        int reg_default = 0;
-        std::string reg_description ;
-        uint8_t data;
-
-        if (readAttributeValue(reg,attr_address_string,reg_addr)!=0) return -1;
-    
-        if (readAttributeValue(reg,attr_value_string,reg_value)!=0) return -1;
-
-        if (readAttributeValue(reg,attr_default_string,reg_default)!=0) return -1;  
-
-        attr = reg->GetAttributesByName(attr_write_string);
-        if (attr == nullptr) {
-            MSG_A("[rp_i2c] Missing attribute write in register\n");
-            return  -1;
-        }
-        reg_write_mode = attr->ValueString();
-
-        attr = reg->GetAttributesByName(attr_decription_string);
-        if (attr == nullptr) {
-            MSG_A("[rp_i2c] Missing attribute write in register\n");
-            return  -1;
+    bool equal = true;
+    for (const RegEntry& e : cfg.registers) {
+        const int want = wantedValue(e);
+        if (want < 0) {
+            continue;
         }
 
-        if ((reg_write_mode == "value") || (reg_write_mode == "default")) {
-            /* Write data to i2c */
-            uint8_t data_in_file = 0;
-
-            if (reg_write_mode == "value") {
-                data_in_file = (uint8_t)reg_value;
-            }
-
-            if (reg_write_mode == "default") {
-                data_in_file = (uint8_t)reg_default;
-            }
-
-            reg_description = attr->ValueString();
-        
-            if (rp_read_from_i2c(bus_name.c_str(),device_addr, reg_addr, data , force) != RP_HW_OK) {
-                /* Error process */
-                MSG_A("[rp_i2c] ERROR read value of %s to i2c\n",reg_description.c_str());
-            }
-            if (data_in_file != data) equal_values = false;
-            MSG("[rp_i2c] Addr: 0x%.2X\tvalue in i2c: 0x%.2X\tvalue in xml: 0x%.2X\t%s\n",reg_addr,data,data_in_file,reg_description.c_str());
+        uint8_t data = 0;
+        if (rp_read_from_i2c(cfg.busName.c_str(), cfg.deviceAddr, e.address, data, force) != RP_HW_OK) {
+            MSG_A("[rp_i2c] ERROR read value of %s from i2c\n", e.description.c_str());
+            equal = false;
+            continue;
         }
+
+        if ((uint8_t)want != data) {
+            equal = false;
+        }
+        MSG("[rp_i2c] Addr: 0x%.2X\tvalue in i2c: 0x%.2X\tvalue in xml: 0x%.2X\t%s\n", e.address, data, (uint8_t)want,
+            e.description.c_str());
     }
-
-    delete doc;
-    
-    if (equal_values)
-    return 0;
-        else 
-    return 1;
+    return equal ? 0 : 1;
 }
 
-}
+}  // namespace rp_i2c

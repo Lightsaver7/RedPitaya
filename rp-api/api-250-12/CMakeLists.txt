@@ -14,7 +14,11 @@ set(CMAKE_VERBOSE_MAKEFILE OFF)
 set(CMAKE_C_COMPILER "gcc")
 set(CMAKE_CXX_COMPILER "g++")
 set(CMAKE_CXX_STANDARD 20)
-set(C_STANDARD 20)
+# There used to be set(C_STANDARD 20) here. C_STANDARD is not a variable CMake
+# reads -- the per-target property has that name -- so the line did nothing.
+# Spelling it CMAKE_C_STANDARD makes it take effect and immediately fails:
+# 20 is not a valid C standard (90/99/11/17/23 are). It was a confused
+# duplicate of the C++ setting above, so it is simply gone.
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
@@ -22,7 +26,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
 project(rp)
 
 if(NOT DEFINED INSTALL_DIR)
-    message(WARNING,"Installation path not set. Installation will be skipped")
+    message(WARNING "Installation path not set. Installation will be skipped")
     set(IS_INSTALL OFF)
 endif()
 
@@ -55,12 +59,28 @@ endif()
 
 set(CMAKE_INSTALL_RPATH ${r_paths})
 
+include_directories("src")
 include_directories("src/xml")
-include_directories("include")
 include_directories("include")
 include_directories(${INSTALL_DIR}/include)
 
-file(GLOB PR_XML_SOURCES "src/xml/*.cpp")
+# pugixml replaces the parser that used to live under src/xml.
+# Prefer the packaged version; PUGIXML_VENDORED builds a copy dropped into
+# src/xml (pugixml.cpp / pugixml.hpp / pugiconfig.hpp) instead.
+option(PUGIXML_VENDORED "Build the copy of pugixml under src/xml" OFF)
+
+if(PUGIXML_VENDORED)
+    set(PUGI_LIB "")
+    list(APPEND PR_XML_EXTRA "src/xml/pugixml.cpp")
+else()
+    find_package(pugixml REQUIRED)
+    set(PUGI_LIB pugixml::pugixml)
+endif()
+
+# No config uses XPath, and it is a large chunk of code with its own relocations.
+add_compile_definitions(PUGIXML_NO_XPATH)
+
+set(PR_XML_SOURCES "src/xml/rp-xml.cpp" ${PR_XML_EXTRA})
 
 file(GLOB PR_I2C_SOURCES "src/rp-i2c.cpp"
                          "src/rp-i2c-mcp47x6.cpp"
@@ -81,7 +101,13 @@ add_compile_options(-mcpu=cortex-a9 -mfpu=neon-fp16 -fPIC)
 add_compile_definitions(ARCH_ARM)
 add_compile_options($<$<CONFIG:Debug>:-DTRACE_ENABLE>)
 add_compile_options(-Wall -Wpedantic -Wextra -DVERSION=${VERSION} -DREVISION=${REVISION} $<$<CONFIG:Debug>:-g3> $<$<CONFIG:Release>:-Os> -ffunction-sections -fdata-sections)
-link_libraries(-L${INSTALL_DIR}/lib -lrp-hw -lrp-hw-profiles ${GPIOD_LIB})
+# link_libraries() applied to every target in the project, so librp-gpio.so
+# carried DT_NEEDED entries for librp-hw and librp-hw-profiles it never
+# referenced, and librp-i2c / librp-spi one for libgpiod. Every unused entry
+# costs an open + mmap + relocation pass on each dlopen of a dependent library.
+# Dependencies are per target below; --as-needed drops whatever is unreferenced.
+link_directories(${INSTALL_DIR}/lib)
+add_link_options("LINKER:--as-needed")
 
 add_library(${PROJECT_NAME}-xml OBJECT ${PR_XML_SOURCES})
 add_library(${PROJECT_NAME}-i2c OBJECT ${PR_I2C_SOURCES})
@@ -102,21 +128,23 @@ if(BUILD_SHARED)
         set(CMAKE_SWIG_FLAGS -threads -O)
 
         SWIG_ADD_LIBRARY(rp_api_250_py LANGUAGE python SOURCES src/rp_api_250.i ${PR_XML_SOURCES} ${PR_I2C_SOURCES} ${PR_SPI_SOURCES} ${PR_GPIO_SOURCES})
-        SWIG_LINK_LIBRARIES(rp_api_250_py ${Python3_LIBRARIES} i2c)
+        SWIG_LINK_LIBRARIES(rp_api_250_py ${Python3_LIBRARIES} i2c rp-hw rp-hw-profiles ${GPIOD_LIB} ${PUGI_LIB})
     endif()
 
     add_library(${PROJECT_NAME}-i2c-shared SHARED)
     set_property(TARGET ${PROJECT_NAME}-i2c-shared PROPERTY OUTPUT_NAME ${PROJECT_NAME}-i2c)
     target_sources(${PROJECT_NAME}-i2c-shared PRIVATE $<TARGET_OBJECTS:${PROJECT_NAME}-xml> $<TARGET_OBJECTS:${PROJECT_NAME}-i2c>)
-    target_link_libraries(${PROJECT_NAME}-i2c-shared i2c)
+    target_link_libraries(${PROJECT_NAME}-i2c-shared i2c rp-hw rp-hw-profiles ${PUGI_LIB})
 
     add_library(${PROJECT_NAME}-spi-shared SHARED)
     set_property(TARGET ${PROJECT_NAME}-spi-shared PROPERTY OUTPUT_NAME ${PROJECT_NAME}-spi)
     target_sources(${PROJECT_NAME}-spi-shared PRIVATE $<TARGET_OBJECTS:${PROJECT_NAME}-xml> $<TARGET_OBJECTS:${PROJECT_NAME}-spi>)
+    target_link_libraries(${PROJECT_NAME}-spi-shared ${PUGI_LIB})
 
     add_library(${PROJECT_NAME}-gpio-shared SHARED)
     set_property(TARGET ${PROJECT_NAME}-gpio-shared PROPERTY OUTPUT_NAME ${PROJECT_NAME}-gpio)
     target_sources(${PROJECT_NAME}-gpio-shared PRIVATE $<TARGET_OBJECTS:${PROJECT_NAME}-gpio>)
+    target_link_libraries(${PROJECT_NAME}-gpio-shared ${GPIOD_LIB})
 
     if(IS_INSTALL)
         install(TARGETS ${PROJECT_NAME}-i2c-shared
@@ -188,15 +216,15 @@ endif()
 
 if(BUILD_TEST)
     add_executable(rp_i2c_test ${CMAKE_SOURCE_DIR}/test/main.cpp)
-    target_link_libraries(rp_i2c_test PRIVATE $<TARGET_OBJECTS:${PROJECT_NAME}-xml> $<TARGET_OBJECTS:${PROJECT_NAME}-i2c> $<TARGET_OBJECTS:${PROJECT_NAME}-spi>  $<TARGET_OBJECTS:${PROJECT_NAME}-gpio> i2c)
+    target_link_libraries(rp_i2c_test PRIVATE $<TARGET_OBJECTS:${PROJECT_NAME}-xml> $<TARGET_OBJECTS:${PROJECT_NAME}-i2c> $<TARGET_OBJECTS:${PROJECT_NAME}-spi>  $<TARGET_OBJECTS:${PROJECT_NAME}-gpio> i2c rp-hw rp-hw-profiles ${GPIOD_LIB} ${PUGI_LIB})
 endif()
 
 if(BUILD_TOOL)
     add_executable(rp_i2c_tool ${CMAKE_SOURCE_DIR}/src/tool/main.cpp)
-    target_link_libraries(rp_i2c_tool PRIVATE $<TARGET_OBJECTS:${PROJECT_NAME}-xml> $<TARGET_OBJECTS:${PROJECT_NAME}-i2c> -li2c -lrp-hw)
+    target_link_libraries(rp_i2c_tool PRIVATE $<TARGET_OBJECTS:${PROJECT_NAME}-xml> $<TARGET_OBJECTS:${PROJECT_NAME}-i2c> i2c rp-hw rp-hw-profiles ${PUGI_LIB})
 
     add_executable(rp_power_on ${CMAKE_SOURCE_DIR}/src/power_on/main.cpp)
-    target_link_libraries(rp_power_on PRIVATE $<TARGET_OBJECTS:${PROJECT_NAME}-xml> $<TARGET_OBJECTS:${PROJECT_NAME}-spi> $<TARGET_OBJECTS:${PROJECT_NAME}-gpio> $<TARGET_OBJECTS:${PROJECT_NAME}-i2c>)
+    target_link_libraries(rp_power_on PRIVATE $<TARGET_OBJECTS:${PROJECT_NAME}-xml> $<TARGET_OBJECTS:${PROJECT_NAME}-spi> $<TARGET_OBJECTS:${PROJECT_NAME}-gpio> $<TARGET_OBJECTS:${PROJECT_NAME}-i2c> i2c rp-hw rp-hw-profiles ${GPIOD_LIB} ${PUGI_LIB})
 
     if(IS_INSTALL)
         install(TARGETS rp_i2c_tool
