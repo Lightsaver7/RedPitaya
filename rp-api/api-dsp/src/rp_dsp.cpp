@@ -915,7 +915,7 @@ auto CDSP::createData() -> data_t* {
         for (int mode = MIN_DSP_MODE; mode < COUNT_DSP_MODE; mode++) {
             d->m_converted.m_peak_power[mode].resize(m_pimpl->m_max_channels);
             d->m_converted.m_peak_freq[mode].resize(m_pimpl->m_max_channels);
-            d->m_converted.m_result[mode].resize(max_out_size);
+            d->m_converted.m_result[mode].resize(m_pimpl->m_max_channels);
             for (uint8_t ch = 0; ch < m_pimpl->m_max_channels; ch++) {
                 resize(max_out_size, d->m_converted.m_result[mode][ch]);
             }

@@ -42,6 +42,8 @@ class CMeasureController {
     CMeasureController();
     ~CMeasureController();
 
+    auto init() -> int;
+
     CMeasureController(CMeasureController&) = delete;
     CMeasureController(CMeasureController&&) = delete;
 
@@ -81,9 +83,9 @@ class CMeasureController {
     func_t m_scaleFunc;
     func_t m_attAmplFunc;
     std::mutex m_settingsMutex;
-    double m_sample_per;
-    float m_osc_fpga_smpl_freq;
-    uint8_t m_adc_bits;
+    double m_sample_per = 0;
+    float m_osc_fpga_smpl_freq = 0;
+    uint8_t m_adc_bits = 0;
     std::vector<rp_dsp_api::CDSP*> m_cdsp;
     std::vector<uint32_t> m_cdspDec;
 };

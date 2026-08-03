@@ -27,6 +27,7 @@ int store_calib(const calib_t CALIB_MODE,
 	FILE *calibration_file = fopen(&command[0], "w+");
 	if(calibration_file == NULL){
 		TRACE_SHORT("Error opening calibration file.");
+		return -1;
 	}
 
 	//Write data to calib_file

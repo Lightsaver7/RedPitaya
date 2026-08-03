@@ -71,6 +71,8 @@ class CViewController {
     CViewController();
     ~CViewController();
 
+    auto init() -> int;
+
     CViewController(CViewController&) = delete;
     CViewController(CViewController&&) = delete;
 

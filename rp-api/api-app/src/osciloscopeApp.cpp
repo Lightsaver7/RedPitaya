@@ -110,6 +110,8 @@ static inline int scaleChannel(rpApp_osc_source channel, float vpp, float vMean)
 }
 
 int osc_Init() {
+    ECHECK_APP(g_viewController.init())
+    ECHECK_APP(g_measureController.init())
     g_decimator.setViewSize(g_viewController.getViewSize());
     g_decimator.setScaleFunction(scaleAmplitudeCalcCoffChannel);
     g_measureController.setUnScaleFunction(unscaleAmplitudeChannel);
@@ -141,17 +143,17 @@ int osc_Release() {
     if (g_thread) {
         if (g_thread->joinable()) {
             g_thread->join();
-            delete g_thread;
-            g_thread = NULL;
         }
+        delete g_thread;
+        g_thread = NULL;
     }
 
     if (g_threadView) {
         if (g_threadView->joinable()) {
             g_threadView->join();
-            delete g_threadView;
-            g_threadView = NULL;
         }
+        delete g_threadView;
+        g_threadView = NULL;
     }
     return RP_OK;
 }

@@ -4,22 +4,29 @@
 #include <algorithm>
 #include "common.h"
 
-CMeasureController::CMeasureController() : m_unscaleFunc(NULL), m_scaleFunc(NULL), m_attAmplFunc(NULL) {
+CMeasureController::CMeasureController() : m_unscaleFunc(NULL), m_scaleFunc(NULL), m_attAmplFunc(NULL) {}
+
+auto CMeasureController::init() -> int {
     if (getADCSamplePeriod(&m_sample_per) != RP_OK) {
-        FATAL("Can't get a period of samples")
+        ERROR_LOG("Can't get a period of samples")
+        return RP_EOOR;
     }
     m_osc_fpga_smpl_freq = getADCRate();
 
     if (rp_HPGetFastADCBits(&m_adc_bits) != RP_OK) {
-        FATAL("Can't get a adc bits")
+        ERROR_LOG("Can't get a adc bits")
+        return RP_EOOR;
     }
 
-    createDSPforAutoScale(ADC_BUFFER_SIZE);
+    if (m_cdsp.empty()) {
+        createDSPforAutoScale(ADC_BUFFER_SIZE);
+    }
+    return RP_OK;
 }
 
 CMeasureController::~CMeasureController() {
     setUnScaleFunction(NULL);
-    for (auto idx = 0; idx < 2; idx++) {
+    for (size_t idx = 0; idx < m_cdsp.size(); idx++) {
         delete m_cdsp[idx];
         m_cdsp[idx] = nullptr;
     }
@@ -34,7 +41,7 @@ auto CMeasureController::createDSPforAutoScale(uint32_t bufferSize) -> void {
     m_cdspDec.push_back(RP_DEC_1);
     m_cdspDec.push_back(RP_DEC_128);
 
-    for (auto idx = 0; idx < 2; idx++) {
+    for (size_t idx = 0; idx < m_cdsp.size(); idx++) {
         m_cdsp[idx] = new rp_dsp_api::CDSP(channels, bufferSize, m_osc_fpga_smpl_freq, true);
 
         if (m_cdsp[idx]->setSignalLengthDiv2(bufferSize)) {

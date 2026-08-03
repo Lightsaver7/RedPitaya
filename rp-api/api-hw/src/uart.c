@@ -156,14 +156,36 @@ int uart_SetSettings()
         g_settings.c_cflag &= ~CSIZE;
         g_settings.c_cflag |= mode | CLOCAL | CREAD;           /* 8 bits */
         g_settings.c_cflag &= ~CRTSCTS;                        // Disable flow control
-        g_settings.c_iflag &= ~(IXON | IXOFF | IXANY);         // Disable XON/XOFF flow control both input & output
-        g_settings.c_iflag &= ~(ICANON | ECHO | ECHOE | ISIG); // Non Cannonical mode
+        g_settings.c_iflag &= ~(IXON | IXOFF | IXANY); // Disable XON/XOFF flow control both input & output
         g_settings.c_iflag &= ~ICRNL;
+
+        /* Input parity checking. PARENB in c_cflag only makes the hardware
+         * generate and detect the parity bit; without INPCK the line discipline
+         * ignores a detected error and passes the byte through unchanged.
+         * IGNPAR discards a byte that failed the check, so a corrupted byte is
+         * not handed to the caller as valid data. */
+        if (g_parity == RP_UART_NONE)
+        {
+            g_settings.c_iflag &= ~(INPCK | IGNPAR | PARMRK);
+        }
+        else
+        {
+            g_settings.c_iflag |= INPCK | IGNPAR;
+            g_settings.c_iflag &= ~PARMRK;
+        }
         g_settings.c_oflag &= ~OPOST; /* raw output */
 
         g_settings.c_lflag = 0;             //  enable raw input instead of canonical,
-        g_settings.c_cc[VMIN] = 0;          // Read at least 1 character
-        g_settings.c_cc[VTIME] = g_timeout; // Wait indefinetly
+        if (g_timeout == 0)
+        {
+            g_settings.c_cc[VMIN] = 1;  // Block until at least one byte arrives
+            g_settings.c_cc[VTIME] = 0;
+        }
+        else
+        {
+            g_settings.c_cc[VMIN] = 0;  // Return after g_timeout deciseconds
+            g_settings.c_cc[VTIME] = g_timeout;
+        }
 
         /* Baud rate fuctions
          * cfsetospeed - Set output speed
@@ -229,7 +251,8 @@ int uart_read(unsigned char *_buffer, int *size)
                 {
                     return RP_HW_EUTO;
                 }
-                // Nothing to do
+                ERROR_LOG("Failed to read from UART. End of file.");
+                return RP_HW_ERU;
             }
             else
             {

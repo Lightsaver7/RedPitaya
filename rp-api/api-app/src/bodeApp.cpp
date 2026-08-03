@@ -44,9 +44,12 @@ typedef double data_t;
     }
 
 static std::vector<float> calib_data;
-static pthread_mutex_t mutex;
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-rp_dsp_api::CDSP g_dsp_logic(adc_channels, ADC_BUFFER_SIZE, adc_rate, true);
+static rp_dsp_api::CDSP& g_dsp() {
+    static rp_dsp_api::CDSP instance(adc_channels, ADC_BUFFER_SIZE, adc_rate, true);
+    return instance;
+}
 
 uint8_t rpApp_BaGetADCChannels() {
     uint8_t c = 0;
@@ -385,12 +388,12 @@ int rpApp_BaDataAnalysisFFT(const rp_ba_buffer_t& buffer, uint32_t size,
             ret_value = RP_EIPV;
     }
 
-    auto data = g_dsp_logic.getStoredData();
-    g_dsp_logic.setSignalLengthDiv2(size);
-    g_dsp_logic.window_init(rp_dsp_api::FLAT_TOP);
-    g_dsp_logic.fftInit();
+    auto data = g_dsp().getStoredData();
+    g_dsp().setSignalLengthDiv2(size);
+    g_dsp().window_init(rp_dsp_api::FLAT_TOP);
+    g_dsp().fftInit();
 
-    g_dsp_logic.prepareFreqVector(data, adc_rate, decimation);
+    g_dsp().prepareFreqVector(data, adc_rate, decimation);
     for (size_t i = 0; i < size; i++) {
         data->m_in[0][i] = buffer.ch1[i];
     }
@@ -399,11 +402,11 @@ int rpApp_BaDataAnalysisFFT(const rp_ba_buffer_t& buffer, uint32_t size,
         data->m_in[1][i] = buffer.ch2[i];
     }
 
-    g_dsp_logic.windowFilter(data);
-    g_dsp_logic.fft(data);
+    g_dsp().windowFilter(data);
+    g_dsp().fft(data);
     double amp[2];
     double phase[2];
-    g_dsp_logic.getAmpAndPhase(data, _freq, &amp[0], &phase[0], &amp[1], &phase[1]);
+    g_dsp().getAmpAndPhase(data, _freq, &amp[0], &phase[0], &amp[1], &phase[1]);
 
     TRACE_SHORT("A1 %f A2 %f P1 %f P2 %f", amp[0], amp[1], phase[0] * 180 / M_PI, phase[1] * 180 / M_PI);
     auto phase2 = phase[1] - phase[0];

@@ -29,7 +29,11 @@ int rpApp_Init() {
         return ret;
     }
 
-    osc_Init();
+    ret = osc_Init();
+    if (ret != RP_OK) {
+        rp_Release();
+        return ret;
+    }
 
     ret = rpApp_Reset();
     if (ret != RP_OK) {

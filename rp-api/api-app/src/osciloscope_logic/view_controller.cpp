@@ -20,12 +20,20 @@ CViewController::CViewController()
       m_oscPerSecCounter(0),
       m_processBuffersPerSec(0),
       m_processBuffersPerSecCounter(0) {
-    initView();
-    prepareOscillogramBuffer(DEFAULT_OSCILOGRAMM_BUFFERS);
     setViewSize(VIEW_SIZE_DEFAULT);
     m_currentBuffer = 0;
     m_lastTimeCapture = std::chrono::system_clock::now();
     m_lastTimeProcess = m_lastTimeCapture;
+}
+
+auto CViewController::init() -> int {
+    if (!m_origialData.empty()) {
+        return RP_OK;
+    }
+    initView();
+    prepareOscillogramBuffer(DEFAULT_OSCILOGRAMM_BUFFERS);
+    setViewSize(VIEW_SIZE_DEFAULT);
+    return RP_OK;
 }
 
 CViewController::~CViewController() {
