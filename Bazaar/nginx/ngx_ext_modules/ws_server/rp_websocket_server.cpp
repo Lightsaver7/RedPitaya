@@ -10,6 +10,7 @@
 #include <fstream>
 #include <future>
 #include <iostream>
+#include <memory>
 #include <streambuf>
 #include <string>
 
@@ -36,7 +37,7 @@ auto rp_WSCreateDirectory(const std::string& _path) -> bool {
     return !ec;
 }
 
-rp_websocket_server::rp_websocket_server() : m_params(NULL), m_OnClosed(false) {}
+rp_websocket_server::rp_websocket_server() : m_params(NULL), m_OnClosed(false), m_runFailed(false) {}
 
 rp_websocket_server::rp_websocket_server(struct server_parameters* params) : m_params(params) {
     // set up access channels to only log interesting things
@@ -82,19 +83,25 @@ void rp_websocket_server::run(std::string docroot, uint16_t port) {
     m_endpoint.get_alog().write(websocketpp::log::alevel::app, ss.str());
     m_docroot = docroot;
 
-    m_endpoint.set_reuse_addr(true);
-    // listen on specified port
-    m_endpoint.listen(boost::asio::ip::tcp::v4(), port);
-    // m_endpoint.listen(port);
-    // Start the server accept loop
-    m_endpoint.start_accept();
-    // Start the ASIO io_service run loop
     try {
+        m_endpoint.set_reuse_addr(true);
+        // listen on specified port
+        m_endpoint.listen(boost::asio::ip::tcp::v4(), port);
+        // m_endpoint.listen(port);
+        // Start the server accept loop
+        m_endpoint.start_accept();
+        // Start the ASIO io_service run loop
         m_OnClosed = false;
         m_endpoint.run();
     } catch (websocketpp::exception const& e) {
-        std::cout << e.what() << std::endl;
-        m_endpoint.get_alog().write(websocketpp::log::alevel::app, e.what());
+        m_runFailed = true;
+        m_endpoint.get_alog().write(websocketpp::log::alevel::app, std::string("run: ") + e.what());
+    } catch (std::exception const& e) {
+        m_runFailed = true;
+        m_endpoint.get_alog().write(websocketpp::log::alevel::app, std::string("run: ") + e.what());
+    } catch (...) {
+        m_runFailed = true;
+        m_endpoint.get_alog().write(websocketpp::log::alevel::app, "run: unknown exception");
     }
 }
 
@@ -383,34 +390,58 @@ rp_websocket_server* rp_websocket_server::create(struct server_parameters* param
 
 void rp_websocket_server::start(std::string docroot, uint16_t port) {
     m_endpoint.get_alog().write(websocketpp::log::alevel::app, "start ws_server");
+    m_runFailed = false;
     m_thread = thread(bind(&rp_websocket_server::run, this, docroot, port));
     set_signal_timer();
     set_param_timer();
     int timeout = 0;
-    while (m_OnClosed && timeout < 5000) {
+    while (m_OnClosed && !m_runFailed && timeout < 5000) {
         usleep(1000);
         timeout++;
     }
 }
 
 void rp_websocket_server::join() {
-    m_thread.join();
+    if (m_thread.joinable()) {
+        m_thread.join();
+    }
 }
 
 void rp_websocket_server::stop() {
-    auto th = std::thread([]() {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        exit(-1);
-    });
-    th.detach();
+    /* Watchdog for a stop() that never returns. Cancelled on the way out, so
+     * the deadline covers only this function and not what the caller does
+     * afterwards: unloading the module and running its static destructors take
+     * far longer than the timeout and used to be killed mid-way.
+     * _exit rather than exit: exit runs atexit handlers and static destructors,
+     * and doing that from a detached thread while the main thread is inside
+     * dlclose tears the same objects down twice. */
+    auto done = std::make_shared<std::atomic_bool>(false);
+    std::thread([done]() {
+        for (int i = 0; i < 3000 && !*done; i++) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        if (!*done) {
+            fprintf(stderr, "Error: rp_websocket_server::stop() timed out, terminating worker\n");
+            _exit(-1);
+        }
+    }).detach();
+
     m_OnClosed = true;
 
     m_endpoint.get_alog().write(websocketpp::log::alevel::app, "stop ws_server");
 
-    m_endpoint.stop_listening();
+    websocketpp::lib::error_code ec;
+    m_endpoint.stop_listening(ec);
+    if (ec) {
+        m_endpoint.get_alog().write(websocketpp::log::alevel::app, "stop_listening: " + ec.message());
+    }
     m_endpoint.stop();
-    m_param_timer->cancel();
-    m_signal_timer->cancel();
+    if (m_param_timer) {
+        m_param_timer->cancel();
+    }
+    if (m_signal_timer) {
+        m_signal_timer->cancel();
+    }
     con_list::iterator it;
 
     for (it = m_connections.begin(); it != m_connections.end(); ++it) {
@@ -426,4 +457,5 @@ void rp_websocket_server::stop() {
     m_connections.clear();
     join();
     m_out.close();
+    *done = true;
 }

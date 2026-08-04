@@ -6,6 +6,7 @@
 #include <fstream>
 #include <set>
 
+#include <atomic>
 #include "rp_sdk/rp_json.h"
 #include "ws_server.h"
 
@@ -54,5 +55,6 @@ class rp_websocket_server {
     std::string m_docroot;
     std::ofstream m_out;
     volatile bool m_OnClosed;
+    std::atomic_bool m_runFailed;
 };
 }
