@@ -85,8 +85,7 @@ auto CWaveWriter::resetHeaderInit() -> void {
 }
 
 auto CWaveWriter::Impl::buildHeader(std::iostream* memory) -> void {
-    int sampleRate = 44100;
-    int32_t dataChunkSize = m_samplesPerChannel * m_numChannels * (m_bitDepth / 8);
+    int32_t dataChunkSize = 0;
     int16_t data_format = m_bitDepth == 32 ? 0x0003 : 0x0001;
     addStringToFileData(memory, "RIFF");
 
@@ -102,8 +101,8 @@ auto CWaveWriter::Impl::buildHeader(std::iostream* memory) -> void {
     addInt16ToFileData(memory, (int16_t)m_numChannels, m_endianness);  // num channels
     addInt32ToFileData(memory, (int32_t)m_OSCRate, m_endianness);      // sample rate
 
-    int32_t numBytesPerSecond = (int32_t)((m_numChannels * sampleRate * m_bitDepth) / 8);
-    addInt32ToFileData(memory, numBytesPerSecond, m_endianness);
+    uint32_t numBytesPerSecond = (uint32_t)(((uint64_t)m_OSCRate * m_numChannels * m_bitDepth) / 8);
+    addInt32ToFileData(memory, (int32_t)numBytesPerSecond, m_endianness);
 
     int16_t numBytesPerBlock = m_numChannels * (m_bitDepth / 8);
     addInt16ToFileData(memory, numBytesPerBlock, m_endianness);
@@ -146,12 +145,13 @@ auto CWaveWriter::Impl::write(SBufferPack* _pack, std::iostream* _memory) -> boo
         }
     }
 
-    if (maxBitBySample > RP_F_f32_Bit) {
-        maxBitBySample = RP_F_f32_Bit;
+    const auto maxSupportedBitDepth = SBufferPack::getBitsCount(RP_F_f32_Bit);
+    if (maxBitBySample > maxSupportedBitDepth) {
+        maxBitBySample = maxSupportedBitDepth;
     }
 
+    m_bitDepth = maxBitBySample;
     m_samplesPerChannel = maxSamples;
-    auto m_bitDepth = maxBitBySample;
 
     // std::stringstream *memory = new std::stringstream(std::ios_base::in | std::ios_base::out | std::ios_base::binary);
     if (m_headerInit) {

@@ -69,6 +69,7 @@ auto CCSVWriter::Impl::write(SBufferPack* _pack, std::iostream* _memory) -> bool
 
         s += "\r\n";
         _memory->write(s.c_str(), s.length());
+        m_initHeader = false;
     }
     size_t max_samples = 0;
     rp_channel_t all_fields[] = {RP_F_INDEX, RP_F_TIME, RP_F_CH1, RP_F_CH2, RP_F_CH3, RP_F_CH4, RP_F_CH5, RP_F_CH6, RP_F_CH7, RP_F_CH8, RP_F_CH9, RP_F_CH10};

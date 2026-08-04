@@ -15,13 +15,15 @@ LINUX_VER = 3.01
 BUILD_NUMBER ?= dev
 REVISION ?= $(shell git rev-parse --short HEAD)
 VERSION = $(LINUX_VER)-$(BUILD_NUMBER)
+
 export BUILD_NUMBER
 export REVISION
 export VERSION
 export LINUX_VER
 BUILD_MODE ?= Release
+BUILD_TESTS ?= ON
 VERBOSE = OFF
-CMAKEVAR=-DINSTALL_DIR=$(abspath $(INSTALL_DIR)) -DCMAKE_BUILD_TYPE=$(BUILD_MODE)  -DVERSION=$(VERSION) -DLINUX_VER=$(LINUX_VER) -DBUILD_NUMBER=$(BUILD_NUMBER) -DREVISION=$(REVISION) -DCMAKE_VERBOSE_MAKEFILE:BOOL=$(VERBOSE)
+CMAKEVAR=-DINSTALL_DIR=$(abspath $(INSTALL_DIR)) -DCMAKE_BUILD_TYPE=$(BUILD_MODE)  -DVERSION=$(VERSION) -DLINUX_VER=$(LINUX_VER) -DBUILD_NUMBER=$(BUILD_NUMBER) -DREVISION=$(REVISION) -DCMAKE_VERBOSE_MAKEFILE:BOOL=$(VERBOSE) -DBUILD_TESTS:BOOL=$(BUILD_TESTS)
 ################################################################################
 #
 ################################################################################
@@ -93,7 +95,7 @@ librp_sweep: librp
 	cmake -B$(abspath $(LIBRP_SWEEP_DIR)/build) -S$(abspath $(LIBRP_SWEEP_DIR)) $(CMAKEVAR)
 	$(MAKE) -C $(LIBRP_SWEEP_DIR)/build install -j$(CPU_CORES)
 
-librp_formatter: librp
+librp_formatter:
 	cmake -B$(abspath $(LIBRP_FORMATTER_DIR)/build) -S$(abspath $(LIBRP_FORMATTER_DIR)) $(CMAKEVAR)
 	$(MAKE) -C $(LIBRP_FORMATTER_DIR)/build install -j$(CPU_CORES)
 

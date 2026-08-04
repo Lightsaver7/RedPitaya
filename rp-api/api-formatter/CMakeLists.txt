@@ -7,6 +7,7 @@ option(BUILD_PYTHON_MODULE "Builds python module" ON)
 
 option(IS_INSTALL "Install library" ON)
 option(BUILD_DOC "Build documentation" ON)
+option(BUILD_TESTS "Build unit tests (GoogleTest C++ suite + npTDMS/SWIG Python suite)" OFF)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
@@ -49,6 +50,7 @@ message(STATUS "Install path ${INSTALL_DIR}")
 
 message(STATUS "Build shared ${BUILD_SHARED}")
 message(STATUS "Build static ${BUILD_STATIC}")
+message(STATUS "Run tests ${BUILD_TESTS}")
 
 message(STATUS "Compiler C path: ${CMAKE_C_COMPILER}")
 message(STATUS "Compiler C ID: ${CMAKE_C_COMPILER_ID}")
@@ -185,4 +187,9 @@ if(BUILD_STATIC)
         install(FILES ${header}
             DESTINATION ${INSTALL_DIR}/include/common)
     endif()
+endif()
+
+if(BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
 endif()
