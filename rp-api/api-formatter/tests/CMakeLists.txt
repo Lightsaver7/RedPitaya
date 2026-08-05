@@ -6,6 +6,13 @@
 ##   - test_wav_writer.cpp
 ##   - test_csv_writer.cpp
 ##   - test_tdms_writer.cpp
+## plus mode-independent and lower-level suites:
+##   - test_common.cpp            writers/common.h type + channel lookups
+##   - test_formatter.cpp         CFormatter file/buffer lifecycle
+##   - test_tdms_data_type.cpp    TDMS::DataType sizing, ownership, copies
+##   - test_tdms_binary_stream.cpp TDMS::BinaryStream byte layout
+##   - test_tdms_segment.cpp      TDMS::WriterSegment/Writer/File framing
+##   - test_stream_binding.cpp    one-writer-one-stream contract (all modes)
 ## all compiled into a single "rp_formatter_tests" binary and registered
 ## individually with CTest via gtest_discover_tests().
 ##
@@ -69,9 +76,15 @@ set(TEST_FIXTURES_DIR ${CMAKE_CURRENT_BINARY_DIR}/fixtures)
 file(MAKE_DIRECTORY ${TEST_FIXTURES_DIR})
 
 add_executable(rp_formatter_tests
+    test_common.cpp
+    test_formatter.cpp
+    test_stream_binding.cpp
     test_wav_writer.cpp
     test_csv_writer.cpp
     test_tdms_writer.cpp
+    test_tdms_data_type.cpp
+    test_tdms_binary_stream.cpp
+    test_tdms_segment.cpp
 )
 
 target_include_directories(rp_formatter_tests PRIVATE

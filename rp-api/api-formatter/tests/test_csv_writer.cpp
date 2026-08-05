@@ -2,23 +2,6 @@
  * Unit tests for CFormatter(RP_F_CSV, ...) — the CSV writer, exercised
  * only through the public CFormatter facade.
  *
- * NOTE — one defect in src/writers/rp_csv_writer.cpp was found while
- * writing these tests:
- *
- *   [BUG-CSV-1] rp_csv_writer.cpp, CCSVWriter::Impl::write():
- *       Unlike CWaveWriter (which sets `m_headerInit = false;` right after
- *       writing the header once), CCSVWriter never clears m_initHeader
- *       after emitting the header row. resetHeaderInit()/resetWriter()
- *       only ever sets it back to true, so it is a no-op relative to the
- *       already-true default. The practical effect: calling writeToFile()
- *       more than once on the same open file (the exact streaming pattern
- *       used elsewhere in this project, e.g. the WAV writer and
- *       tests/rp_formatter_test.py) duplicates the header row on every
- *       call instead of writing it once.
- *
- * The "header appears exactly once" tests below assert the behaviour that
- * symmetry with CWaveWriter implies is intended, so they fail today
- * against BUG-CSV-1. That is intentional.
  */
 
 #include <gtest/gtest.h>
@@ -106,8 +89,7 @@ TEST(CsvWriter, RowsFormatEachSupportedTypeWithSixDecimalPlacesForFloats) {
 
     ASSERT_EQ(lines.size(), 2u);
     EXPECT_EQ(lines[0], "CH1,CH2,CH3,CH4,CH5,CH6,CH7,CH8");
-    EXPECT_EQ(lines[1],
-              "200,60000,4000000000,-123456,18000000000000000000,-9000000000000000000,3.500000,-2.250000");
+    EXPECT_EQ(lines[1], "200,60000,4000000000,-123456,18000000000000000000,-9000000000000000000,3.500000,-2.250000");
 }
 
 TEST(CsvWriter, RowsAreSeparatedByCrLfWithNoTrailingTerminator) {
@@ -181,7 +163,7 @@ TEST(CsvWriter, HeaderRowIsWrittenExactlyOnceAcrossRepeatedWritesToOneFile) {
         headerCount++;
         pos += 3;
     }
-    EXPECT_EQ(headerCount, 1u) << "See BUG-CSV-1 in rp_csv_writer.cpp";
+    EXPECT_EQ(headerCount, 1u);
 }
 
 TEST(CsvWriter, ResetWriterAfterCloseAllowsHeaderOnNextFile) {
@@ -206,4 +188,128 @@ TEST(CsvWriter, ResetWriterAfterCloseAllowsHeaderOnNextFile) {
     std::ifstream check(path2, std::ios::binary);
     std::string content((std::istreambuf_iterator<char>(check)), std::istreambuf_iterator<char>());
     EXPECT_EQ(content.substr(0, 3), "CH1");
+}
+
+TEST(CsvWriter, EmptyPackStillEmitsTheHeaderTerminator) {
+    // No channel at all: the header line degenerates to a bare CRLF and no
+    // data rows follow.
+    CFormatter formatter(RP_F_CSV, 1000);
+
+    std::stringstream mem;
+    ASSERT_TRUE(formatter.writeToStream(&mem));
+    EXPECT_EQ(mem.str(), "\r\n");
+}
+
+TEST(CsvWriter, IndexAndTimeColumnsHonourCustomNames) {
+    CFormatter formatter(RP_F_CSV, 1000);
+    std::vector<uint32_t> index = {0};
+    std::vector<double> time = {0.0};
+    formatter.setChannel(RP_F_INDEX, index.data(), 1, "n");
+    formatter.setChannel(RP_F_TIME, time.data(), 1, "t, s");
+
+    std::stringstream mem;
+    ASSERT_TRUE(formatter.writeToStream(&mem));
+    auto lines = SplitLines(mem.str());
+
+    EXPECT_EQ(lines[0], "n,t, s");
+}
+
+TEST(CsvWriter, ChannelsAreEmittedInAscendingOrderRegardlessOfAssignmentOrder) {
+    // Columns follow the RP_F_CH* enum order, not the order setChannel() was
+    // called in, and gaps in the channel numbering are simply skipped.
+    CFormatter formatter(RP_F_CSV, 1000);
+    std::vector<uint8_t> ch5 = {50};
+    std::vector<uint8_t> ch2 = {20};
+    std::vector<uint8_t> ch10 = {100};
+    formatter.setChannel(RP_F_CH5, ch5.data(), 1);
+    formatter.setChannel(RP_F_CH10, ch10.data(), 1);
+    formatter.setChannel(RP_F_CH2, ch2.data(), 1);
+
+    std::stringstream mem;
+    ASSERT_TRUE(formatter.writeToStream(&mem));
+    auto lines = SplitLines(mem.str());
+
+    EXPECT_EQ(lines[0], "CH2,CH5,CH10");
+    EXPECT_EQ(lines[1], "20,50,100");
+}
+
+TEST(CsvWriter, SingleSampleProducesExactlyOneUnterminatedRow) {
+    CFormatter formatter(RP_F_CSV, 1000);
+    std::vector<uint8_t> ch1 = {42};
+    formatter.setChannel(RP_F_CH1, ch1.data(), 1);
+
+    std::stringstream mem;
+    ASSERT_TRUE(formatter.writeToStream(&mem));
+
+    EXPECT_EQ(mem.str(), "CH1\r\n42");
+}
+
+TEST(CsvWriter, SecondWriteToTheSameStreamAppendsRowsWithoutARepeatedHeader) {
+    CFormatter formatter(RP_F_CSV, 1000);
+    std::vector<uint8_t> ch1 = {1, 2};
+    formatter.setChannel(RP_F_CH1, ch1.data(), static_cast<int>(ch1.size()));
+
+    std::stringstream mem;
+    ASSERT_TRUE(formatter.writeToStream(&mem));
+    ASSERT_TRUE(formatter.writeToStream(&mem));
+
+    // Note the missing separator between the two blocks: the writer omits the
+    // terminator after the last row of every block (see
+    // CCSVWriter::Impl::write()), so consecutive blocks butt up against each
+    // other. This documents the current streaming behaviour.
+    EXPECT_EQ(mem.str(), "CH1\r\n1\r\n21\r\n2");
+}
+
+TEST(CsvWriter, ResetWriterReEmitsTheHeaderOnTheNextStream) {
+    CFormatter formatter(RP_F_CSV, 1000);
+    std::vector<uint8_t> ch1 = {1};
+    formatter.setChannel(RP_F_CH1, ch1.data(), 1);
+
+    std::stringstream first;
+    ASSERT_TRUE(formatter.writeToStream(&first));
+    formatter.resetWriter();
+    std::stringstream second;
+    ASSERT_TRUE(formatter.writeToStream(&second));
+
+    EXPECT_EQ(first.str(), "CH1\r\n1");
+    EXPECT_EQ(second.str(), "CH1\r\n1");
+}
+
+TEST(CsvWriter, TypesThatWavRejectsAreStillWrittenAsPlainDecimalColumns) {
+    // getWavSupport() excludes the 32/64-bit integer types, but CSV has no
+    // such restriction - all eight types must produce a column.
+    CFormatter formatter(RP_F_CSV, 1000);
+    std::vector<uint32_t> ui32 = {1, 2};
+    std::vector<int32_t> i32 = {-1, -2};
+    std::vector<uint64_t> ui64 = {3, 4};
+    std::vector<int64_t> i64 = {-3, -4};
+    formatter.setChannel(RP_F_CH1, ui32.data(), 2);
+    formatter.setChannel(RP_F_CH2, i32.data(), 2);
+    formatter.setChannel(RP_F_CH3, ui64.data(), 2);
+    formatter.setChannel(RP_F_CH4, i64.data(), 2);
+
+    std::stringstream mem;
+    ASSERT_TRUE(formatter.writeToStream(&mem));
+    auto lines = SplitLines(mem.str());
+
+    ASSERT_EQ(lines.size(), 3u);
+    EXPECT_EQ(lines[0], "CH1,CH2,CH3,CH4");
+    EXPECT_EQ(lines[1], "1,-1,3,-3");
+    EXPECT_EQ(lines[2], "2,-2,4,-4");
+}
+
+TEST(CsvWriter, ShorterIndexColumnIsPaddedLikeAnyOtherColumn) {
+    CFormatter formatter(RP_F_CSV, 1000);
+    std::vector<uint32_t> index = {7};
+    std::vector<uint8_t> ch1 = {1, 2};
+    formatter.setChannel(RP_F_INDEX, index.data(), 1);
+    formatter.setChannel(RP_F_CH1, ch1.data(), 2);
+
+    std::stringstream mem;
+    ASSERT_TRUE(formatter.writeToStream(&mem));
+    auto lines = SplitLines(mem.str());
+
+    ASSERT_EQ(lines.size(), 3u);
+    EXPECT_EQ(lines[1], "7,1");
+    EXPECT_EQ(lines[2], "0,2");
 }

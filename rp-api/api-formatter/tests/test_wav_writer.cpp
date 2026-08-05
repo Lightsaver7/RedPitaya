@@ -254,3 +254,250 @@ TEST(WavWriter, RepeatedWriteToFileAppendsDataWithoutDuplicatingHeader) {
     EXPECT_EQ(header.dataChunkSize, expectedDataSize);
     EXPECT_EQ(bytes.size(), kWavHeaderSize + expectedDataSize);
 }
+
+TEST(WavWriter, BigEndianModeByteSwapsTheFormatChunkFields) {
+    // setEndiannes() only affects the integers written by buildHeader() (the
+    // helpers addInt16ToFileData/addInt32ToFileData take the endianness), so
+    // the format chunk is asserted directly on the raw bytes here instead of
+    // through ParseWavHeader(), which always decodes little-endian.
+    CFormatter formatter(RP_F_WAV, 44100);
+    ASSERT_TRUE(formatter.setEndiannes(RP_F_BigEndian));
+    std::vector<uint8_t> ch1 = {1, 2, 3, 4};
+    formatter.setChannel(RP_F_CH1, ch1.data(), static_cast<int>(ch1.size()));
+
+    std::stringstream mem;
+    ASSERT_TRUE(formatter.writeToStream(&mem));
+    auto bytes = mem.str();
+    ASSERT_GE(bytes.size(), kWavHeaderSize);
+
+    EXPECT_EQ(bytes.substr(0, 4), "RIFF");
+    EXPECT_EQ(bytes.substr(8, 4), "WAVE");
+    EXPECT_EQ(bytes.substr(12, 4), "fmt ");
+    EXPECT_EQ(bytes.substr(36, 4), "data");
+
+    // fmt chunk size 16, PCM tag 1, 1 channel, 44100 Hz, 8 bits per sample.
+    EXPECT_EQ(bytes.substr(16, 4), std::string("\x00\x00\x00\x10", 4));
+    EXPECT_EQ(bytes.substr(20, 2), std::string("\x00\x01", 2));
+    EXPECT_EQ(bytes.substr(22, 2), std::string("\x00\x01", 2));
+    EXPECT_EQ(bytes.substr(24, 4), std::string("\x00\x00\xAC\x44", 4));
+    EXPECT_EQ(bytes.substr(34, 2), std::string("\x00\x08", 2));
+}
+
+TEST(WavWriter, LittleEndianIsTheDefaultWithoutCallingSetEndiannes) {
+    CFormatter formatter(RP_F_WAV, 44100);
+    std::vector<uint8_t> ch1 = {1};
+    formatter.setChannel(RP_F_CH1, ch1.data(), 1);
+
+    std::stringstream mem;
+    ASSERT_TRUE(formatter.writeToStream(&mem));
+    auto bytes = mem.str();
+
+    EXPECT_EQ(bytes.substr(24, 4), std::string("\x44\xAC\x00\x00", 4));
+}
+
+TEST(WavWriter, DoubleChannelIsNarrowedTo32BitFloatPayload) {
+    // getBitsCount(RP_F_d64_Bit) is 64 but WAV output is capped at 32 bits
+    // (maxSupportedBitDepth in CWaveWriter::Impl::write()), so doubles are
+    // written as float32 samples.
+    CFormatter formatter(RP_F_WAV, 44100);
+    std::vector<double> ch1 = {0.5, -0.25, 1.0};
+    formatter.setChannel(RP_F_CH1, ch1.data(), static_cast<int>(ch1.size()));
+
+    std::stringstream mem;
+    ASSERT_TRUE(formatter.writeToStream(&mem));
+    auto bytes = mem.str();
+    auto header = ParseWavHeader(bytes);
+
+    EXPECT_EQ(header.bitsPerSample, 32u);
+    EXPECT_EQ(header.audioFormat, 3u);
+    ASSERT_EQ(bytes.size(), kWavHeaderSize + ch1.size() * sizeof(float));
+
+    std::vector<float> written(ch1.size());
+    std::memcpy(written.data(), bytes.data() + kWavHeaderSize, written.size() * sizeof(float));
+    EXPECT_FLOAT_EQ(written[0], 0.5f);
+    EXPECT_FLOAT_EQ(written[1], -0.25f);
+    EXPECT_FLOAT_EQ(written[2], 1.0f);
+}
+
+TEST(WavWriter, IntegerChannelsAreNormalisedToPlusMinusOneWhenPromotedTo32Bit) {
+    // A float channel forces 32-bit output; the 8/16-bit integer channels
+    // alongside it are then reinterpreted as signed and divided by their
+    // full-scale value (get32Bit() in CWaveWriter::Impl::write()).
+    CFormatter formatter(RP_F_WAV, 44100);
+    std::vector<float> ch1 = {0.f};
+    std::vector<uint8_t> ch2 = {0x7F};
+    std::vector<uint16_t> ch3 = {0x7FFF};
+    formatter.setChannel(RP_F_CH1, ch1.data(), 1);
+    formatter.setChannel(RP_F_CH2, ch2.data(), 1);
+    formatter.setChannel(RP_F_CH3, ch3.data(), 1);
+
+    std::stringstream mem;
+    ASSERT_TRUE(formatter.writeToStream(&mem));
+    auto bytes = mem.str();
+    auto header = ParseWavHeader(bytes);
+
+    EXPECT_EQ(header.numChannels, 3u);
+    EXPECT_EQ(header.bitsPerSample, 32u);
+    ASSERT_EQ(bytes.size(), kWavHeaderSize + 3 * sizeof(float));
+
+    std::vector<float> written(3);
+    std::memcpy(written.data(), bytes.data() + kWavHeaderSize, written.size() * sizeof(float));
+    EXPECT_FLOAT_EQ(written[0], 0.f);
+    EXPECT_FLOAT_EQ(written[1], 1.f);
+    EXPECT_FLOAT_EQ(written[2], 1.f);
+}
+
+TEST(WavWriter, PackWithOnlyUnsupportedChannelsYieldsAHeaderAndNoPayload) {
+    CFormatter formatter(RP_F_WAV, 44100);
+    std::vector<int32_t> ch1 = {1, 2, 3};
+    std::vector<uint64_t> ch2 = {1, 2, 3};
+    formatter.setChannel(RP_F_CH1, ch1.data(), static_cast<int>(ch1.size()));
+    formatter.setChannel(RP_F_CH2, ch2.data(), static_cast<int>(ch2.size()));
+
+    std::stringstream mem;
+    ASSERT_TRUE(formatter.writeToStream(&mem));
+    auto bytes = mem.str();
+    auto header = ParseWavHeader(bytes);
+
+    EXPECT_EQ(header.numChannels, 0u);
+    EXPECT_EQ(header.dataChunkSize, 0u);
+    EXPECT_EQ(bytes.size(), kWavHeaderSize);
+}
+
+TEST(WavWriter, EmptyPackYieldsAHeaderAndNoPayload) {
+    CFormatter formatter(RP_F_WAV, 44100);
+
+    std::stringstream mem;
+    ASSERT_TRUE(formatter.writeToStream(&mem));
+    auto bytes = mem.str();
+    auto header = ParseWavHeader(bytes);
+
+    EXPECT_EQ(header.riffId, "RIFF");
+    EXPECT_EQ(header.numChannels, 0u);
+    EXPECT_EQ(header.dataChunkSize, 0u);
+    EXPECT_EQ(bytes.size(), kWavHeaderSize);
+}
+
+TEST(WavWriter, ResetWriterReEmitsTheHeaderOnTheNextStream) {
+    CFormatter formatter(RP_F_WAV, 44100);
+    std::vector<float> ch1 = {1.f, 2.f};
+    formatter.setChannel(RP_F_CH1, ch1.data(), static_cast<int>(ch1.size()));
+
+    std::stringstream first;
+    ASSERT_TRUE(formatter.writeToStream(&first));
+    formatter.resetWriter();
+    std::stringstream second;
+    ASSERT_TRUE(formatter.writeToStream(&second));
+
+    ASSERT_EQ(first.str().size(), kWavHeaderSize + ch1.size() * sizeof(float));
+    EXPECT_EQ(second.str(), first.str());
+}
+
+TEST(WavWriter, SwappingTheStreamWithoutResetWriterIsRejected) {
+    // The writer stays bound to the stream it emitted the RIFF header into:
+    // updateSize() keeps patching the chunk sizes at offsets 4 and 40 of
+    // that stream on every write. Accepting a different stream would mean
+    // writing a headerless file whose first sample bytes then get
+    // overwritten by that size patching, so the write is refused instead
+    // and the second stream is left untouched.
+    CFormatter formatter(RP_F_WAV, 44100);
+    std::vector<float> ch1 = {1.f, 2.f};
+    formatter.setChannel(RP_F_CH1, ch1.data(), static_cast<int>(ch1.size()));
+
+    std::stringstream first;
+    ASSERT_TRUE(formatter.writeToStream(&first));
+    std::stringstream second;
+
+    EXPECT_FALSE(formatter.writeToStream(&second));
+    EXPECT_TRUE(second.str().empty());
+    EXPECT_EQ(first.str().size(), kWavHeaderSize + ch1.size() * sizeof(float));
+}
+
+TEST(WavWriter, ResetWriterRebindsTheWriterToTheNextStream) {
+    CFormatter formatter(RP_F_WAV, 44100);
+    std::vector<float> ch1 = {1.f, 2.f};
+    formatter.setChannel(RP_F_CH1, ch1.data(), static_cast<int>(ch1.size()));
+
+    std::stringstream first;
+    ASSERT_TRUE(formatter.writeToStream(&first));
+    std::stringstream second;
+    ASSERT_FALSE(formatter.writeToStream(&second));
+
+    formatter.resetWriter();
+
+    EXPECT_TRUE(formatter.writeToStream(&second));
+    EXPECT_EQ(second.str(), first.str());
+}
+
+TEST(WavWriter, PayloadOfARebindStreamIsNotCorruptedBySizePatching) {
+    CFormatter formatter(RP_F_WAV, 44100);
+    std::vector<float> ch1 = {1.f, 2.f};
+    formatter.setChannel(RP_F_CH1, ch1.data(), static_cast<int>(ch1.size()));
+
+    std::stringstream first;
+    ASSERT_TRUE(formatter.writeToStream(&first));
+    formatter.resetWriter();
+    std::stringstream second;
+    ASSERT_TRUE(formatter.writeToStream(&second));
+
+    const std::string bytes = second.str();
+    ASSERT_EQ(bytes.size(), kWavHeaderSize + ch1.size() * sizeof(float));
+    std::vector<float> written(ch1.size());
+    std::memcpy(written.data(), bytes.data() + kWavHeaderSize, written.size() * sizeof(float));
+    EXPECT_EQ(written, ch1);
+}
+
+TEST(WavWriter, BlockAlignAndByteRateScaleWithChannelCount) {
+    CFormatter formatter(RP_F_WAV, 48000);
+    std::vector<float> ch1 = {1.f, 2.f};
+    std::vector<float> ch2 = {3.f, 4.f};
+    formatter.setChannel(RP_F_CH1, ch1.data(), static_cast<int>(ch1.size()));
+    formatter.setChannel(RP_F_CH2, ch2.data(), static_cast<int>(ch2.size()));
+
+    std::stringstream mem;
+    ASSERT_TRUE(formatter.writeToStream(&mem));
+    auto header = ParseWavHeader(mem.str());
+
+    EXPECT_EQ(header.numChannels, 2u);
+    EXPECT_EQ(header.bitsPerSample, 32u);
+    EXPECT_EQ(header.blockAlign, 8u);
+    EXPECT_EQ(header.byteRate, 2u * 48000u * 4u);
+}
+
+TEST(WavWriter, TimeAndIndexChannelsAreNotPartOfWavOutput) {
+    // Unlike the TDMS writer, CWaveWriter only iterates RP_F_CH1..RP_F_CH10.
+    CFormatter formatter(RP_F_WAV, 44100);
+    std::vector<float> ch1 = {1.f, 2.f};
+    std::vector<double> time = {0.0, 0.1};
+    std::vector<uint32_t> index = {0, 1};
+    formatter.setChannel(RP_F_CH1, ch1.data(), static_cast<int>(ch1.size()));
+    formatter.setChannel(RP_F_TIME, time.data(), static_cast<int>(time.size()));
+    formatter.setChannel(RP_F_INDEX, index.data(), static_cast<int>(index.size()));
+
+    std::stringstream mem;
+    ASSERT_TRUE(formatter.writeToStream(&mem));
+    auto bytes = mem.str();
+    auto header = ParseWavHeader(bytes);
+
+    EXPECT_EQ(header.numChannels, 1u);
+    EXPECT_EQ(bytes.size(), kWavHeaderSize + ch1.size() * sizeof(float));
+}
+
+TEST(WavWriter, InterleavedPayloadOrderFollowsAscendingChannelNumber) {
+    CFormatter formatter(RP_F_WAV, 44100);
+    std::vector<float> ch3 = {30.f, 31.f};
+    std::vector<float> ch1 = {10.f, 11.f};
+    formatter.setChannel(RP_F_CH3, ch3.data(), static_cast<int>(ch3.size()));
+    formatter.setChannel(RP_F_CH1, ch1.data(), static_cast<int>(ch1.size()));
+
+    std::stringstream mem;
+    ASSERT_TRUE(formatter.writeToStream(&mem));
+    auto bytes = mem.str();
+
+    std::vector<float> written(4);
+    ASSERT_EQ(bytes.size(), kWavHeaderSize + written.size() * sizeof(float));
+    std::memcpy(written.data(), bytes.data() + kWavHeaderSize, written.size() * sizeof(float));
+
+    const std::vector<float> expected = {10.f, 30.f, 11.f, 31.f};
+    EXPECT_EQ(written, expected);
+}

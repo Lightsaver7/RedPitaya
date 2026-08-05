@@ -14,12 +14,6 @@ is built and on PYTHONPATH:
 
     PYTHONPATH=/path/to/build/output python3 -m unittest test_rp_formatter_swig -v
 
-NOTE: TDMS/WAV/CSV correctness on the *writer* side is already covered by
-the C++ suite and verify_tdms.py, so scenarios that would be redundant
-here are kept intentionally small. Two writer defects documented in
-test_wav_writer.cpp / test_csv_writer.cpp (BUG-WAV-1, BUG-WAV-2,
-BUG-CSV-1) reproduce through this wrapper too, since it is the exact same
-C++ code underneath -- see the comments at the matching assertions below.
 """
 
 import os

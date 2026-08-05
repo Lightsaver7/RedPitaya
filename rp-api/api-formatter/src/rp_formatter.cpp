@@ -74,6 +74,9 @@ auto CFormatter::resetWriter() -> void {
     if (m_pimpl->m_wave) {
         m_pimpl->m_wave->resetHeaderInit();
     }
+    if (m_pimpl->m_tdms) {
+        m_pimpl->m_tdms->resetHeaderInit();
+    }
     if (m_pimpl->m_csv) {
         m_pimpl->m_csv->resetHeaderInit();
     }
@@ -171,6 +174,18 @@ auto CFormatter::closeFile() -> bool {
         if (m_pimpl->m_file->is_open()) {
             m_pimpl->m_file->flush();
             m_pimpl->m_file->close();
+        }
+        // Let the writers drop their pointer to this stream before it is
+        // destroyed, so that a std::fstream later allocated at the same
+        // address is not accepted as "the same stream" by SStreamGuard.
+        if (m_pimpl->m_wave) {
+            m_pimpl->m_wave->notifyStreamClosed(m_pimpl->m_file);
+        }
+        if (m_pimpl->m_tdms) {
+            m_pimpl->m_tdms->notifyStreamClosed(m_pimpl->m_file);
+        }
+        if (m_pimpl->m_csv) {
+            m_pimpl->m_csv->notifyStreamClosed(m_pimpl->m_file);
         }
         delete m_pimpl->m_file;
         m_pimpl->m_file = NULL;

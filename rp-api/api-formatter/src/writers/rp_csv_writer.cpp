@@ -26,6 +26,7 @@ struct CCSVWriter::Impl {
     uint32_t m_OSCRate;
     string m_devider = ",";
     bool m_initHeader = true;
+    SStreamGuard m_guard;
     auto write(SBufferPack* _pack, std::iostream* _memory) -> bool;
 };
 
@@ -40,9 +41,17 @@ CCSVWriter::~CCSVWriter() {
 
 auto CCSVWriter::resetHeaderInit() -> void {
     m_pimpl->m_initHeader = true;
+    m_pimpl->m_guard.reset();
+}
+
+auto CCSVWriter::notifyStreamClosed(std::iostream* _memory) -> void {
+    m_pimpl->m_guard.invalidate(_memory);
 }
 
 auto CCSVWriter::Impl::write(SBufferPack* _pack, std::iostream* _memory) -> bool {
+    if (!m_guard.accept(_memory, "CCSVWriter")) {
+        return false;
+    }
     if (m_initHeader) {
         std::string s = "";
         bool first = true;

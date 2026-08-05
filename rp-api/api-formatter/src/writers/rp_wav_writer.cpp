@@ -25,6 +25,7 @@ struct CWaveWriter::Impl {
     uint32_t m_OSCRate;
     rp_endianness_t m_endianness;
     std::fstream* m_file = NULL;
+    SStreamGuard m_guard;
 
     auto buildHeader(std::iostream* memory) -> void;
     auto write(SBufferPack* _pack, std::iostream* _memory) -> bool;
@@ -82,6 +83,11 @@ auto CWaveWriter::setEndiannes(rp_endianness_t _endiannes) -> void {
 
 auto CWaveWriter::resetHeaderInit() -> void {
     m_pimpl->m_headerInit = true;
+    m_pimpl->m_guard.reset();
+}
+
+auto CWaveWriter::notifyStreamClosed(std::iostream* _memory) -> void {
+    m_pimpl->m_guard.invalidate(_memory);
 }
 
 auto CWaveWriter::Impl::buildHeader(std::iostream* memory) -> void {
@@ -115,6 +121,10 @@ auto CWaveWriter::Impl::buildHeader(std::iostream* memory) -> void {
 }
 
 auto CWaveWriter::Impl::write(SBufferPack* _pack, std::iostream* _memory) -> bool {
+
+    if (!m_guard.accept(_memory, "CWaveWriter")) {
+        return false;
+    }
 
     // Init variables
 

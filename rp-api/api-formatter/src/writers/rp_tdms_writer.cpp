@@ -26,6 +26,7 @@ using namespace std;
 
 struct CTDMSWriter::Impl {
     uint32_t m_OSCRate;
+    SStreamGuard m_guard;
     auto write(SBufferPack* _pack, std::iostream* _memory) -> bool;
 };
 
@@ -36,6 +37,14 @@ CTDMSWriter::CTDMSWriter(uint32_t _oscRate) {
 
 CTDMSWriter::~CTDMSWriter() {
     delete m_pimpl;
+}
+
+auto CTDMSWriter::resetHeaderInit() -> void {
+    m_pimpl->m_guard.reset();
+}
+
+auto CTDMSWriter::notifyStreamClosed(std::iostream* _memory) -> void {
+    m_pimpl->m_guard.invalidate(_memory);
 }
 
 bool isLeapYear(int year) {
@@ -52,6 +61,10 @@ bool isLeapYear(int year) {
 }
 
 auto CTDMSWriter::Impl::write(SBufferPack* _pack, std::iostream* _memory) -> bool {
+    if (!m_guard.accept(_memory, "CTDMSWriter")) {
+        return false;
+    }
+
     TDMS::File outFile;
     TDMS::WriterSegment segment;
     vector<shared_ptr<TDMS::Metadata>> data;

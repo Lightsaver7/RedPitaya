@@ -26,6 +26,7 @@ public:
 
     auto writeToStream(SBufferPack *_pack, std::iostream *_memory) -> bool;
     auto resetHeaderInit() -> void;
+    auto notifyStreamClosed(std::iostream *_memory) -> void;
 
 
 private:

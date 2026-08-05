@@ -25,8 +25,9 @@ public:
 
     auto setEndiannes(rp_endianness_t _endiannes) -> void;
     auto resetHeaderInit() -> void;
-   
+
     auto writeToStream(SBufferPack *_pack, std::iostream *_memory) -> bool;
+    auto notifyStreamClosed(std::iostream *_memory) -> void;
     
 
 private:
