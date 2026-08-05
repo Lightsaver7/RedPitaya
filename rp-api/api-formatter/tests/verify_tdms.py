@@ -7,7 +7,7 @@ Deliberately uses the third-party npTDMS reader (`pip install nptdms`)
 instead of this project's own TDMS reading code (there isn't any -- only a
 writer exists) or a hand-rolled parser, so a bug shared between the writer
 and the verifier can't hide: npTDMS has no knowledge of how
-rp_formatter_api::TDMS::Writer works internally.
+rp_formatter_api::tdms::WriteSegment works internally.
 
 Run via CTest (see tests/CMakeLists.txt); can also be run standalone:
 
@@ -69,8 +69,8 @@ class MixedTypeMultiChannelTest(unittest.TestCase):
         ch4 = group["CH4"]  # double input -> DoubleFloat
 
         # NOTE: rp_tdms_writer.cpp maps RP_F_ui8_Bit/RP_F_ui16_Bit onto the
-        # *signed* TDMS::TDMSType::Integer8/Integer16 types (see
-        # CTDMSWriter::Impl::write() in src/writers/rp_tdms_writer.cpp).
+        # *signed* tdms::Type::Int8/Int16 types (see tdmsTypeFor() in
+        # src/writers/rp_tdms_writer.cpp).
         # For values that fit in the positive half of the signed range this
         # is invisible; values above 127 / 32767 would come back negative.
         # The values below are deliberately kept inside that safe range so

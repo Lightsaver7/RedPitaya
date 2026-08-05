@@ -7,7 +7,7 @@ option(BUILD_PYTHON_MODULE "Builds python module" ON)
 
 option(IS_INSTALL "Install library" ON)
 option(BUILD_DOC "Build documentation" ON)
-option(BUILD_TESTS "Build unit tests (GoogleTest C++ suite + npTDMS/SWIG Python suite)" OFF)
+option(BUILD_UNIT_TESTS "Build unit tests (GoogleTest C++ suite + npTDMS/SWIG Python suite)" OFF)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
@@ -50,7 +50,7 @@ message(STATUS "Install path ${INSTALL_DIR}")
 
 message(STATUS "Build shared ${BUILD_SHARED}")
 message(STATUS "Build static ${BUILD_STATIC}")
-message(STATUS "Run tests ${BUILD_TESTS}")
+message(STATUS "Run tests ${BUILD_UNIT_TESTS}")
 
 message(STATUS "Compiler C path: ${CMAKE_C_COMPILER}")
 message(STATUS "Compiler C ID: ${CMAKE_C_COMPILER_ID}")
@@ -73,10 +73,7 @@ list(APPEND src
             ${PROJECT_SOURCE_DIR}/src/writers/rp_csv_writer.cpp
             ${PROJECT_SOURCE_DIR}/src/writers/rp_wav_writer.cpp
             ${PROJECT_SOURCE_DIR}/src/writers/rp_tdms_writer.cpp
-            ${PROJECT_SOURCE_DIR}/src/tdms/binary_stream.cpp
-            ${PROJECT_SOURCE_DIR}/src/tdms/data_type.cpp
-            ${PROJECT_SOURCE_DIR}/src/tdms/file.cpp
-            ${PROJECT_SOURCE_DIR}/src/tdms/writer.cpp
+            ${PROJECT_SOURCE_DIR}/src/tdms/tdms_writer.cpp
             ${PROJECT_SOURCE_DIR}/src/rp_formatter.cpp
         )
 
@@ -189,7 +186,7 @@ if(BUILD_STATIC)
     endif()
 endif()
 
-if(BUILD_TESTS)
+if(BUILD_UNIT_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()

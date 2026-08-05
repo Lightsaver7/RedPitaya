@@ -7,12 +7,13 @@
 ##   - test_csv_writer.cpp
 ##   - test_tdms_writer.cpp
 ## plus mode-independent and lower-level suites:
-##   - test_common.cpp            writers/common.h type + channel lookups
-##   - test_formatter.cpp         CFormatter file/buffer lifecycle
-##   - test_tdms_data_type.cpp    TDMS::DataType sizing, ownership, copies
-##   - test_tdms_binary_stream.cpp TDMS::BinaryStream byte layout
-##   - test_tdms_segment.cpp      TDMS::WriterSegment/Writer/File framing
-##   - test_stream_binding.cpp    one-writer-one-stream contract (all modes)
+##   - test_common.cpp             writers/common.h type + channel lookups
+##   - test_formatter.cpp          CFormatter file/buffer lifecycle
+##   - test_stream_binding.cpp     one-writer-one-stream contract (all modes)
+##   - test_tdms_encoding.cpp      tdms/tdms_bytes.h little-endian emission
+##   - test_tdms_types.cpp         tdms::Value / tdms::RawView, epoch, sizing
+##   - test_tdms_writer_segment.cpp tdms::Segment + the on-disk byte layout,
+##                                 including a full golden segment hexdump
 ## all compiled into a single "rp_formatter_tests" binary and registered
 ## individually with CTest via gtest_discover_tests().
 ##
@@ -82,9 +83,9 @@ add_executable(rp_formatter_tests
     test_wav_writer.cpp
     test_csv_writer.cpp
     test_tdms_writer.cpp
-    test_tdms_data_type.cpp
-    test_tdms_binary_stream.cpp
-    test_tdms_segment.cpp
+    test_tdms_encoding.cpp
+    test_tdms_types.cpp
+    test_tdms_writer_segment.cpp
 )
 
 target_include_directories(rp_formatter_tests PRIVATE

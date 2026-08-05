@@ -7,22 +7,14 @@
  *
  */
 
-#include <cassert>
 #include <chrono>
-#include <ctime>
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <sstream>
-#include <vector>
+#include <cstdint>
+#include <string>
 
 #include "rp_tdms_writer.h"
-#include "tdms/file.h"
-#include "tdms/writer.h"
+#include "tdms/tdms_writer.h"
 
 using namespace rp_formatter_api;
-using namespace std;
 
 struct CTDMSWriter::Impl {
     uint32_t m_OSCRate;
@@ -47,91 +39,68 @@ auto CTDMSWriter::notifyStreamClosed(std::iostream* _memory) -> void {
     m_pimpl->m_guard.invalidate(_memory);
 }
 
-bool isLeapYear(int year) {
-    if (year % 400 == 0) {
-        return true;
+namespace {
+
+// NOTE: RP_F_ui8_Bit and RP_F_ui16_Bit deliberately map onto the *signed* TDMS
+// types, which is what this writer has always emitted; RP_F_ui32_Bit and
+// RP_F_ui64_Bit do not. Values above 127 / 32767 therefore read back negative.
+// See the comment in tests/verify_tdms.py - changing the mapping would silently
+// alter the meaning of existing files.
+auto tdmsTypeFor(rp_bits_t _bits) -> tdms::Type {
+    switch (_bits) {
+        case RP_F_ui8_Bit:
+            return tdms::Type::Int8;
+        case RP_F_ui16_Bit:
+            return tdms::Type::Int16;
+        case RP_F_ui32_Bit:
+            return tdms::Type::UInt32;
+        case RP_F_i32_Bit:
+            return tdms::Type::Int32;
+        case RP_F_ui64_Bit:
+            return tdms::Type::UInt64;
+        case RP_F_i64_Bit:
+            return tdms::Type::Int64;
+        case RP_F_f32_Bit:
+            return tdms::Type::Float;
+        case RP_F_d64_Bit:
+            return tdms::Type::Double;
     }
-    if (year % 100 == 0) {
-        return false;
-    }
-    if (year % 4 == 0) {
-        return true;
-    }
-    return false;
+    return tdms::Type::Int8;
 }
+
+auto unixSecondsNow() -> std::int64_t {
+    const auto now = std::chrono::system_clock::now();
+    return std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+}
+
+}  // namespace
 
 auto CTDMSWriter::Impl::write(SBufferPack* _pack, std::iostream* _memory) -> bool {
     if (!m_guard.accept(_memory, "CTDMSWriter")) {
         return false;
     }
 
-    TDMS::File outFile;
-    TDMS::WriterSegment segment;
-    vector<shared_ptr<TDMS::Metadata>> data;
+    // Holds non-owning views of _pack's sample buffers, which outlive this
+    // call; it must not escape the function.
+    tdms::Segment segment;
 
-    auto root = segment.GenerateRoot();
-    root->TableOfContents.HasMetaData = true;
-    root->TableOfContents.HasRawData = true;
-    data.push_back(root);
-    auto group = segment.GenerateGroup("Group");
-    data.push_back(group);
-
-    auto now = std::chrono::system_clock::now();
-    auto currentSeconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
-    uint64_t diffSeconds = 0;
-    for (int i = 1904; i < 1970; i++) {
-        diffSeconds += 24 * 60 * 60 * (isLeapYear(i) ? 366 : 365);
-    }
-    auto totalSeconds = currentSeconds + diffSeconds;
-
-    auto d = new uint64_t[2];
-    d[0] = 0;
-    d[1] = totalSeconds;
-
-    TDMS::DataType data_prop;
-    data_prop.InitDataType(TDMS::TDMSType::TimeStamp, d);
-    segment.AddProperties(group, "time", data_prop);
-    TDMS::DataType osc_prop;
-    auto osc = new uint64_t[1];
-    osc[0] = m_OSCRate;
-    osc_prop.InitDataType(TDMS::TDMSType::UnsignedInteger64, osc);
-    segment.AddProperties(group, "osc_rate", osc_prop);
+    const auto group = segment.AddGroup("Group");
+    segment.SetProperty(group, "time", tdms::Value::TimestampFromUnixSeconds(unixSecondsNow()));
+    segment.SetProperty(group, "osc_rate", tdms::Value::UInt64(m_OSCRate));
 
     for (auto ch = RP_F_CH1; ch <= RP_F_INDEX; ch = rp_channel_t(ch + 1)) {
-        if (_pack->m_buffer.count(ch)) {
-            auto sCount = _pack->m_samplesCount[ch];
-            auto bits = _pack->m_bits[ch];
-            auto buffer = _pack->m_buffer[ch];
-            auto name = _pack->m_name[ch];
-
-            std::string ch_name = (name == "" ? SBufferPack::getChannelName((rp_channel_t)ch) : name);
-
-            auto data_type = TDMS::TDMSType::Integer8;
-            if (bits == RP_F_ui8_Bit)
-                data_type = TDMS::TDMSType::Integer8;
-            if (bits == RP_F_ui16_Bit)
-                data_type = TDMS::TDMSType::Integer16;
-            if (bits == RP_F_ui32_Bit)
-                data_type = TDMS::TDMSType::UnsignedInteger32;
-            if (bits == RP_F_i32_Bit)
-                data_type = TDMS::TDMSType::Integer32;
-            if (bits == RP_F_ui64_Bit)
-                data_type = TDMS::TDMSType::UnsignedInteger64;
-            if (bits == RP_F_i64_Bit)
-                data_type = TDMS::TDMSType::Integer64;
-            if (bits == RP_F_f32_Bit)
-                data_type = TDMS::TDMSType::SingleFloat;
-            if (bits == RP_F_d64_Bit)
-                data_type = TDMS::TDMSType::DoubleFloat;
-
-            auto channel = segment.GenerateChannel("Group", ch_name);
-            data.push_back(channel);
-            segment.AddRaw(channel, data_type, sCount, reinterpret_cast<uint8_t*>(buffer));
+        if (!_pack->m_buffer.count(ch)) {
+            continue;
         }
+        const auto& name = _pack->m_name[ch];
+        const std::string channelName = name.empty() ? SBufferPack::getChannelName(ch) : name;
+
+        segment.AddChannel("Group", channelName,
+                           tdms::RawView{tdmsTypeFor(_pack->m_bits[ch]), static_cast<const std::uint8_t*>(_pack->m_buffer[ch]),
+                                         _pack->m_samplesCount[ch]});
     }
 
-    segment.LoadMetadata(data);
-    outFile.WriteMemory(*_memory, segment);
+    tdms::WriteSegment(*_memory, segment);
     return true;
 }
 
