@@ -70,7 +70,7 @@ auto dirNameOf(const std::string& fname) -> std::string {
 auto buildTDMSStream(std::map<DataLib::EDataBuffersPackChannel, SBuffPass> new_buffs, std::shared_ptr<std::vector<int64_t>> time) -> std::iostream* {
     TDMS::File outFile;
     TDMS::WriterSegment segment;
-    vector<shared_ptr<TDMS::Metadata>> data;
+    std::vector<std::shared_ptr<TDMS::Metadata>> data;
     //    std::time_t tim_sec = std::time(0);
     //    std::time_t local = std::mktime(std::localtime(&tim_sec));
     //    std::time_t gmt = std::mktime(std::gmtime(&tim_sec));
@@ -161,13 +161,13 @@ auto buildTDMSStream(std::map<DataLib::EDataBuffersPackChannel, SBuffPass> new_b
     }
 
     segment.LoadMetadata(data);
-    stringstream* memory = new stringstream(ios_base::in | ios_base::out | ios_base::binary);
+    std::stringstream* memory = new std::stringstream(std::ios_base::in | std::ios_base::out | std::ios_base::binary);
     outFile.WriteMemory(*memory, segment);
     return memory;
 }
 
 auto buildBINStream(DataLib::CDataBuffersPackDMA::Ptr buff_pack, std::map<DataLib::EDataBuffersPackChannel, uint32_t> _samples) -> std::iostream* {
-    stringstream* memory = new stringstream(ios_base::in | ios_base::out | ios_base::binary);
+    std::stringstream* memory = new std::stringstream(std::ios_base::in | std::ios_base::out | std::ios_base::binary);
     CBinInfo::BinHeader header;
     DataLib::CDataBufferDMA::Ptr ch[4] = {NULL, NULL, NULL, NULL};
     ch[0] = buff_pack->getBuffer(DataLib::CH1);
@@ -207,7 +207,7 @@ auto buildBINStream(DataLib::CDataBuffersPackDMA::Ptr buff_pack, std::map<DataLi
 
 auto readCSV(std::iostream* buffer, int64_t* _position, int* _channels, uint64_t* samplePos, bool skipData, FH_CSVMode mode) -> std::iostream* {
     uint32_t endSeg[] = {0, 0, 0};
-    stringstream* memory = nullptr;
+    std::stringstream* memory = nullptr;
     buffer->seekg(*_position, std::ios::beg);
     CBinInfo::BinHeader header;
     int64_t timeCapture = 0;
@@ -235,7 +235,7 @@ auto readCSV(std::iostream* buffer, int64_t* _position, int* _channels, uint64_t
                 *_channels = (size_ch1 > 0 ? 0x1 : 0) | (size_ch2 > 0 ? 0x2 : 0) | (size_ch3 > 0 ? 0x4 : 0) | (size_ch4 > 0 ? 0x8 : 0);
             }
             if (size_ch1 || size_ch2 || size_ch3 || size_ch4 || lost_ch1 || lost_ch2 || lost_ch3 || lost_ch4) {
-                memory = new stringstream(ios_base::in | ios_base::out);
+                memory = new std::stringstream(std::ios_base::in | std::ios_base::out);
             }
             auto resolutionCh1 = header.dataFormatSize[0] * 8;
             auto resolutionCh2 = header.dataFormatSize[1] * 8;
@@ -408,7 +408,7 @@ auto readBinData(std::iostream* buffer, int64_t* _position) -> SBinData* {
             data->ch_lost[i] = header.lostCount[i];
             data->ch_bits[i] = header.dataFormatSize[i];
             data->ch_timeCapture[i] = header.timeCapture[i];
-            data->adcRate = max(header.oscRate[i], data->adcRate);
+            data->adcRate = std::max(header.oscRate[i], data->adcRate);
             if (data->ch_size[i] > 0) {
                 data->ch[i] = new uint8_t[data->ch_size[i]];
                 buffer->read(reinterpret_cast<char*>(data->ch[i]), data->ch_size[i]);

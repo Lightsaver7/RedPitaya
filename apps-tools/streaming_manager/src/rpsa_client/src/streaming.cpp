@@ -26,20 +26,19 @@ auto stopCSV() -> void;
 auto stopStreaming() -> void;
 auto stopStreaming(std::string host) -> void;
 
-auto runClient(std::string host, StateRunnedHosts, uint32_t size, adc_channels_t activeChannels) -> void
-{
-	auto memoryManager = new uio_lib::CMemoryManager();
-	auto buffers = DataLib::CBuffersCached::create();
-	memoryManager->setMemoryBlockSize(size);
+auto runClient(std::string host, StateRunnedHosts, uint32_t size, adc_channels_t activeChannels) -> void {
+    auto memoryManager = new uio_lib::CMemoryManager();
+    auto buffers = DataLib::CBuffersCached::create();
+    memoryManager->setMemoryBlockSize(size);
     memoryManager->reallocateBlocks();
     auto blocks = memoryManager->getFreeBlockCount();
-	auto reserved __attribute__((unused)) = memoryManager->reserveMemory(uio_lib::MM_ADC, blocks, activeChannels.count());
-	buffers->generateBuffersEmptyADC(activeChannels, memoryManager->getRegions(uio_lib::MM_ADC), DataLib::sizeHeader());
-	TRACE_SHORT("Reserved blocks %d", reserved)
+    auto reserved __attribute__((unused)) = memoryManager->reserveMemory(uio_lib::MM_ADC, blocks, activeChannels.count());
+    buffers->generateBuffersEmptyADC(activeChannels, memoryManager->getRegions(uio_lib::MM_ADC), DataLib::sizeHeader());
+    TRACE_SHORT("Reserved blocks %d", reserved)
 
-	g_terminate[host] = false;
+    g_terminate[host] = false;
 
-	if (g_soption.save_dir == "")
+    if (g_soption.save_dir == "")
         g_soption.save_dir = ".";
 
     CStreamSettings::DataFormat file_type = CStreamSettings::DataFormat::BIN;
@@ -200,7 +199,7 @@ auto startStreaming(std::shared_ptr<ClientNetConfigManager> cl, ClientOpt::Optio
     remote_opt.mode = ClientOpt::Mode::REMOTE;
     remote_opt.remote_mode = ClientOpt::RemoteMode::STOP;
     remote_opt.verbous = g_soption.verbous;
-    std::map<string, StateRunnedHosts> runned_hosts;
+    std::map<std::string, StateRunnedHosts> runned_hosts;
     if (!startRemote(cl, remote_opt, nullptr, &runned_hosts)) {
         aprintf(stdout, "%s Can't stop streaming on remote machines\n", getTS(": ").c_str());
         return;
@@ -213,19 +212,19 @@ auto startStreaming(std::shared_ptr<ClientNetConfigManager> cl, ClientOpt::Optio
         return;
     }
 
-	std::map<std::string, adc_channels_t> activeChannels;
-	if (!requestActiveChannels(cl, hosts, &activeChannels, remote_opt.verbous)) {
-		aprintf(stdout, "%s Can't get active channels\n", getTS(": ").c_str());
+    std::map<std::string, adc_channels_t> activeChannels;
+    if (!requestActiveChannels(cl, hosts, &activeChannels, remote_opt.verbous)) {
+        aprintf(stdout, "%s Can't get active channels\n", getTS(": ").c_str());
         return;
-	}
+    }
 
-	runned_hosts.clear();
+    runned_hosts.clear();
     remote_opt.remote_mode = ClientOpt::RemoteMode::START;
     if (startRemote(cl, remote_opt, nullptr, &runned_hosts)) {
         g_runClientCounter = runned_hosts.size();
         for (auto kv : runned_hosts) {
-			if (kv.second == StateRunnedHosts::TCP && activeChannels[kv.first].count() > 0)
-				clients.push_back(std::thread(runClient, kv.first, kv.second, blockSizes[kv.first], activeChannels[kv.first]));
+            if (kv.second == StateRunnedHosts::TCP && activeChannels[kv.first].count() > 0)
+                clients.push_back(std::thread(runClient, kv.first, kv.second, blockSizes[kv.first], activeChannels[kv.first]));
         }
         while (g_runClientCounter > 0) {
             sleepMs(100);
@@ -235,7 +234,7 @@ auto startStreaming(std::shared_ptr<ClientNetConfigManager> cl, ClientOpt::Optio
         }
 
         remote_opt.remote_mode = ClientOpt::RemoteMode::START_FPGA_ADC;
-        std::vector<string> runnedThreads;
+        std::vector<std::string> runnedThreads;
         for (const auto& [key, _] : runned_hosts) {
             runnedThreads.push_back(key);
         }
@@ -247,7 +246,7 @@ auto startStreaming(std::shared_ptr<ClientNetConfigManager> cl, ClientOpt::Optio
             }
         }
 
-        cl->errorNofiy.connect([](ClientNetConfigManager::Errors errors, std::string host, error_code err) {
+        cl->errorNofiy.connect([](ClientNetConfigManager::Errors errors, std::string host, std::error_code err) {
             if (errors == ClientNetConfigManager::Errors::SERVER_INTERNAL) {
                 aprintf(stderr, "%s Error: %s %s\n", getTS(": ").c_str(), host.c_str(), err.message().c_str());
             }

@@ -12,8 +12,6 @@
 
 #define MAX(X, Y) ((X > Y) ? X : Y)
 
-using namespace std;
-
 bool g_stopWrite = false;
 converter_lib::CConverter::Ptr g_converter = nullptr;
 
@@ -58,7 +56,7 @@ void sigHandlerStopCSV(int) {
     g_stopWrite = true;
 }
 
-int ParseInt(string value) noexcept {
+int ParseInt(std::string value) noexcept {
     try {
         int x = std::stoi(value);
         if (x <= 0) {
@@ -104,7 +102,7 @@ int main(int argc, char* argv[]) {
 
             for (int i = 0; i < 4; i++) {
                 aprintf(stdout, "\nChannel %d:\n", i + 1);
-                string dft = "Unknown";
+                std::string dft = "Unknown";
                 if (bi.dataFormatSize[i] == 1)
                     dft = "Int8";
                 if (bi.dataFormatSize[i] == 2)

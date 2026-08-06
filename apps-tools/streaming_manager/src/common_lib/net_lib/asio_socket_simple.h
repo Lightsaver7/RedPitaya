@@ -10,8 +10,6 @@
 
 namespace net_lib {
 
-using namespace std;
-
 class CAsioSocketSimple {
    public:
     using Ptr = std::shared_ptr<CAsioSocketSimple>;
@@ -30,14 +28,14 @@ class CAsioSocketSimple {
 
     auto sendBuffer(bool async, net_lib::net_buffer _buffer, size_t _size) -> bool;
 
-    sigslot::signal<string&> connectNotify;
-    sigslot::signal<string&> disconnectNotify;
+    sigslot::signal<std::string&> connectNotify;
+    sigslot::signal<std::string&> disconnectNotify;
 
-    sigslot::signal<error_code> errorNotify;
-    sigslot::signal<error_code> connectTimeoutNotify;
+    sigslot::signal<std::error_code> errorNotify;
+    sigslot::signal<std::error_code> connectTimeoutNotify;
 
-    sigslot::signal<error_code, size_t> sendNotify;
-    sigslot::signal<error_code, uint8_t*, size_t> recivedNotify;
+    sigslot::signal<std::error_code, size_t> sendNotify;
+    sigslot::signal<std::error_code, uint8_t*, size_t> recivedNotify;
 
    private:
     CAsioSocketSimple(const CAsioSocketSimple&) = delete;

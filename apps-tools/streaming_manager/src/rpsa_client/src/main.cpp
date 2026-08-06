@@ -12,8 +12,6 @@
 #include "streaming.h"
 #include "test_helper.h"
 
-using namespace std;
-
 const char* g_argv0 = NULL;
 
 std::shared_ptr<ClientNetConfigManager> g_cl;

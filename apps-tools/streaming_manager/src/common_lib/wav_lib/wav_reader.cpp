@@ -2,8 +2,6 @@
 #include <cstring>
 #include <iostream>
 
-using namespace std;
-
 CWaveReader::CWaveReader() {
     m_dataSize = 0;
     std::memset(&m_header, 0, sizeof(m_header));
@@ -14,12 +12,12 @@ CWaveReader::~CWaveReader() {
         m_read_fs.close();
 }
 
-auto CWaveReader::openFile(string fileName) -> bool {
+auto CWaveReader::openFile(std::string fileName) -> bool {
     if (m_read_fs.is_open())
         m_read_fs.close();
-    m_read_fs.open(fileName, ios::binary | std::ifstream::in);
+    m_read_fs.open(fileName, std::ios::binary | std::ifstream::in);
     if (m_read_fs.fail()) {
-        cout << "File " << fileName << " not exist" << std::endl;
+        std::cerr << "File " << fileName << " not exist" << std::endl;
         return false;
     }
     m_read_fs.seekg(0, m_read_fs.end);

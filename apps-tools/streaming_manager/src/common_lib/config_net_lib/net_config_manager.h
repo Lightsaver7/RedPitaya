@@ -68,14 +68,14 @@ class CNetConfigManager {
         CS_RESPONSE_SERVER_MODE_SD
     };
 
-	using Ptr = std::shared_ptr<CNetConfigManager>;
+    using Ptr = std::shared_ptr<CNetConfigManager>;
 
-	CNetConfigManager();
-	~CNetConfigManager();
+    CNetConfigManager();
+    ~CNetConfigManager();
 
-	auto startAsioNet(net_lib::EMode _mode, std::string _host, uint16_t _port) -> bool;
-	auto stopAsioNet() -> bool;
-	auto isConnected() -> bool;
+    auto startAsioNet(net_lib::EMode _mode, std::string _host, uint16_t _port) -> bool;
+    auto stopAsioNet() -> bool;
+    auto isConnected() -> bool;
     auto getHost() -> std::string;
     auto getPort() -> uint16_t;
 
@@ -83,12 +83,12 @@ class CNetConfigManager {
     auto sendConfig(std::string value, bool async = true) -> bool;
     auto sendCommand(ECommands command, const std::string& tag = "", bool async = true) -> bool;
 
-    sigslot::signal<string> connectNotify;
-    sigslot::signal<string> disconnectNotify;
+    sigslot::signal<std::string> connectNotify;
+    sigslot::signal<std::string> disconnectNotify;
 
-    sigslot::signal<error_code> errorNotify;
-    sigslot::signal<error_code> connectTimeoutNotify;
-    sigslot::signal<error_code, size_t> sendNotify;
+    sigslot::signal<std::error_code> errorNotify;
+    sigslot::signal<std::error_code> connectTimeoutNotify;
+    sigslot::signal<std::error_code, size_t> sendNotify;
 
     sigslot::signal<std::string, std::string> receivedStringNotify;
     sigslot::signal<std::string> receivedConfigNotify;

@@ -1,5 +1,7 @@
 #include "data_type.h"
+
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <iomanip>
@@ -7,167 +9,139 @@
 #include <locale>
 #include <sstream>
 
-
 using namespace TDMS;
 
-time_t rp_GetTime1904() {
-    std::stringstream stream("1904-01-01 00:00:00");
-    stream.imbue(std::locale::classic());
-    std::tm time_point;
-    std::memset(&time_point, 0, sizeof(std::tm));
-    stream >> std::get_time(&time_point, "%Y-%m-%d %H:%M:%S");
-    return std::mktime(&time_point);
-}
+namespace {
 
-const time_t time_1904 = rp_GetTime1904();
+// Seconds between the TDMS epoch (1904-01-01T00:00:00 UTC) and the Unix epoch,
+// ignoring leap seconds: 66 years (1904..1969) is 66 * 365 days plus 17 leap
+// days (1904, 1908, ... 1968) = 24107 days.
+//
+// This was previously derived with mktime() from a LOCAL 1904-01-01, which made
+// every recorded timestamp depend on the machine's timezone even though a TDMS
+// timestamp is UTC - measured as 2082844800 under UTC but 2082853817 under
+// Europe/Moscow, whose 1904 offset was UTC+02:30:17.
+constexpr std::int64_t kSecondsFrom1904To1970 = 24107LL * 86400LL;
+static_assert(kSecondsFrom1904To1970 == 2082844800LL, "TDMS epoch offset");
 
-DataType::DataType() : m_dataType(TDMSType::Empty), m_dataStringLenght(-1), m_rawData(nullptr), m_vectorData() {}
+// Large enough for "%f" of DBL_MAX, which needs over 300 characters. The
+// original code formatted into char[22].
+constexpr std::size_t kFormatBufferSize = 352;
 
-DataType::DataType(const DataType& tmp) {
-    m_rawData = nullptr;
-    m_dataType = tmp.m_dataType;
-    m_dataStringLenght = tmp.m_dataStringLenght;
-    uint32_t bufSize = GetLength();
-    if (tmp.m_rawData != nullptr) {
-        m_rawData = new char[bufSize];
-        memcpy(m_rawData, tmp.m_rawData, bufSize);
+// Frees a buffer produced by any `new T[n]` with a trivially destructible T.
+// Every pointer the adopting entry points can receive comes from `new char[n]`,
+// `new std::uint8_t[n]` or `new std::uint64_t[2]`, all of which are plain
+// operator new[] allocations, so this is the exact matching deallocation and it
+// avoids the element-type mismatch the old typed `delete[]` expressions had.
+auto FreeAdopted(void* pointer) noexcept -> void {
+    if (pointer != nullptr) {
+        ::operator delete[](pointer);
     }
-    m_vectorData = tmp.m_vectorData;
 }
 
-DataType& DataType::operator=(const DataType& tmp) {
-    m_rawData = nullptr;
-    m_dataType = tmp.m_dataType;
-    m_dataStringLenght = tmp.m_dataStringLenght;
-    uint32_t bufSize = GetLength();
-    if (tmp.m_rawData != nullptr) {
-        m_rawData = new char[bufSize];
-        memcpy(m_rawData, tmp.m_rawData, bufSize);
-    }
-    m_vectorData = tmp.m_vectorData;
-    return *this;
-}
-
-DataType::DataType(DataType&& tmp) {
-    m_dataType = tmp.m_dataType;
-    m_rawData = tmp.m_rawData;
-    m_dataStringLenght = tmp.m_dataStringLenght;
-    tmp.m_rawData = nullptr;
-    tmp.m_dataType = TDMSType::Empty;
-    m_vectorData = tmp.m_vectorData;
-    tmp.m_vectorData.clear();
-}
-
-DataType& DataType::operator=(DataType&& tmp) {
-    this->~DataType();
-    m_dataType = tmp.m_dataType;
-    m_rawData = tmp.m_rawData;
-    m_dataStringLenght = tmp.m_dataStringLenght;
-    tmp.m_rawData = nullptr;
-    m_vectorData = tmp.m_vectorData;
-    tmp.m_vectorData.clear();
-    return *this;
-}
+}  // namespace
 
 auto DataType::InitDataType(TDMSType dataType, void* rawData) -> void {
     m_dataType = dataType;
-    m_rawData = rawData;
+    if (rawData == nullptr) {
+        m_data.clear();
+        if (dataType == TDMSType::String) {
+            m_dataStringLenght = 0;
+        }
+        return;
+    }
+    if (dataType == TDMSType::String) {
+        // The byte length of a string cannot be recovered from this signature;
+        // free the buffer rather than leak it and report the misuse.
+        FreeAdopted(rawData);
+        m_data.clear();
+        m_dataStringLenght = 0;
+        std::cerr << "[ERROR] DataType::InitDataType: use InitStringType for TDMSType::String" << std::endl;
+        return;
+    }
+    const std::uint32_t length = DataType::GetLength(dataType);
+    const auto* source = static_cast<const std::uint8_t*>(rawData);
+    m_data.assign(source, source + length);
+    FreeAdopted(rawData);
 }
 
 auto DataType::InitDataType(TDMSType dataType, std::vector<std::shared_ptr<DataType::Raw>> vec) -> void {
     m_dataType = dataType;
-    m_vectorData = vec;
+    m_vectorData = std::move(vec);
 }
 
-auto DataType::InitStringType(uint32_t length, void* rawData) -> void {
+auto DataType::InitStringType(std::uint32_t length, void* rawData) -> void {
     m_dataType = TDMSType::String;
+    if (rawData == nullptr) {
+        m_data.clear();
+        m_dataStringLenght = 0;
+        return;
+    }
+    const auto* source = static_cast<const std::uint8_t*>(rawData);
+    m_data.assign(source, source + length);
     m_dataStringLenght = length;
-    m_rawData = rawData;
+    FreeAdopted(rawData);
 }
 
-auto DataType::InitRaw(TDMSType dataType, uint64_t count, std::shared_ptr<uint8_t[]> rawData) -> void {
+auto DataType::InitBytes(TDMSType dataType, const void* data, std::size_t size) -> void {
+    m_dataType = dataType;
+    if (data == nullptr || size == 0) {
+        m_data.clear();
+    } else {
+        const auto* source = static_cast<const std::uint8_t*>(data);
+        m_data.assign(source, source + size);
+    }
+    if (dataType == TDMSType::String) {
+        m_dataStringLenght = static_cast<std::uint32_t>(size);
+    }
+}
+
+auto DataType::InitRaw(TDMSType dataType, std::uint64_t count, std::shared_ptr<std::uint8_t[]> rawData) -> void {
     m_dataType = dataType;
     std::shared_ptr<Raw> raw = std::make_shared<Raw>();
-    raw->data = rawData;
+    raw->data = std::move(rawData);
     raw->size = count * GetLength();
     raw->dataType = dataType;
-    this->m_vectorData.push_back(raw);
+    m_vectorData.push_back(raw);
 }
 
-DataType::~DataType() noexcept(false) {
-    if (m_rawData != nullptr)
-        switch (m_dataType) {
-            case TDMSType::Empty: {
-                std::string message = "Cannot delete empty type";
-                throw std::runtime_error(message.c_str());
-            }
-            case TDMSType::Void: {
-                std::string message = "Cannot delete void type";
-                throw std::runtime_error(message.c_str());
-            }
-            case TDMSType::Integer8:
-                delete[] reinterpret_cast<int8_t*>(m_rawData);
-                break;
-            case TDMSType::Integer16:
-                delete[] reinterpret_cast<int16_t*>(m_rawData);
-                break;
-            case TDMSType::Integer32:
-                delete[] reinterpret_cast<int32_t*>(m_rawData);
-                break;
-            case TDMSType::Integer64:
-                delete[] reinterpret_cast<int64_t*>(m_rawData);
-                break;
-            case TDMSType::Boolean:
-            case TDMSType::UnsignedInteger8:
-                delete[] reinterpret_cast<uint8_t*>(m_rawData);
-                break;
-            case TDMSType::UnsignedInteger16:
-                delete[] reinterpret_cast<uint16_t*>(m_rawData);
-                break;
-            case TDMSType::UnsignedInteger32:
-                delete[] reinterpret_cast<uint32_t*>(m_rawData);
-                break;
-            case TDMSType::TimeStamp:
-            case TDMSType::UnsignedInteger64:
-                delete[] reinterpret_cast<uint64_t*>(m_rawData);
-                break;
-            case TDMSType::SingleFloat:
-            case TDMSType::SingleFloatWithUnit:
-                delete[] reinterpret_cast<float*>(m_rawData);
-                break;
-            case TDMSType::DoubleFloat:
-            case TDMSType::DoubleFloatWithUnit:
-                delete[] reinterpret_cast<double*>(m_rawData);
-                break;
-            case TDMSType::String:
-                delete[] reinterpret_cast<char*>(m_rawData);
-                break;
-            default: {
-                std::string message = "Cannot determine of data type ";
-                throw std::runtime_error(message.c_str());
-            }
-        }
+auto DataType::MakeString(const std::string& text) -> DataType {
+    DataType result;
+    result.InitBytes(TDMSType::String, text.data(), text.size());
+    return result;
 }
 
-auto DataType::GetDataType() -> TDMSType {
+auto DataType::MakeTimeStamp(std::int64_t secondsSinceUnixEpoch, std::uint64_t fraction) -> DataType {
+    std::uint8_t payload[16];
+    const std::int64_t seconds = secondsSinceUnixEpoch + kSecondsFrom1904To1970;
+    std::memcpy(payload, &fraction, sizeof(fraction));
+    std::memcpy(payload + sizeof(fraction), &seconds, sizeof(seconds));
+    DataType result;
+    result.InitBytes(TDMSType::TimeStamp, payload, sizeof(payload));
+    return result;
+}
+
+auto DataType::GetDataType() const -> TDMSType {
     return m_dataType;
 }
 
-auto DataType::GetRawVector() -> std::vector<std::shared_ptr<DataType::Raw>> {
+auto DataType::GetRawVector() const -> std::vector<std::shared_ptr<DataType::Raw>> {
     return m_vectorData;
 }
 
 auto DataType::GetRawData() const -> void* {
-    return m_rawData;
+    // Null when there is no payload, which is the signal callers already relied
+    // on. Const-casting away constness here matches the original signature.
+    return m_data.empty() ? nullptr : const_cast<void*>(static_cast<const void*>(m_data.data()));
 }
 
-auto DataType::GetLength() -> uint32_t {
+auto DataType::GetLength() const -> std::uint32_t {
     if (m_dataType == TDMSType::String)
         return this->m_dataStringLenght;
     return DataType::GetLength(this->m_dataType);
 }
 
-auto DataType::GetLength(TDMSType dataType) -> uint32_t {
+auto DataType::GetLength(TDMSType dataType) -> std::uint32_t {
     switch (dataType) {
         case TDMSType::Empty:
             return 0;
@@ -200,68 +174,70 @@ auto DataType::GetLength(TDMSType dataType) -> uint32_t {
         case TDMSType::TimeStamp:
             return 16;
         case TDMSType::String:
-            return -1;
-        default: {
-            std::string message = "Cannot determine size of data type: ";
-            message += static_cast<uint32_t>(dataType);
-            std::cout << "DataType Error: " << message << std::endl;
-        }
+            // A string is length-prefixed and has no fixed width. This used to
+            // return (uint32_t)-1, which made GetArrayLength(String, n) come out
+            // as 0xFFFFFFFF * n and the reader attempt a multi-gigabyte read.
+            return 0;
+        default:
+            std::cerr << "[ERROR] DataType: cannot determine the size of data type "
+                      << std::to_string(static_cast<std::uint32_t>(dataType)) << std::endl;
+            break;
     }
     return 0;
 }
 
-auto DataType::GetArrayLength(TDMSType dataType, uint64_t size) -> uint64_t {
-    return GetLength(dataType) * size;
+auto DataType::GetArrayLength(TDMSType dataType, std::uint64_t size) -> std::uint64_t {
+    return static_cast<std::uint64_t>(GetLength(dataType)) * size;
 }
 
-auto DataType::ToString() -> std::string {
-    char cstr[22];
+auto DataType::ToString() const -> std::string {
+    char cstr[kFormatBufferSize] = {0};
     switch (m_dataType) {
         case TDMSType::Empty:
             return "Empty";
         case TDMSType::Void:
             return "Void";
         case TDMSType::Integer8:
-            sprintf(cstr, "%i", this->GetData<int8_t>());
+            snprintf(cstr, sizeof(cstr), "%i", this->GetData<int8_t>());
             break;
         case TDMSType::Integer16:
-            sprintf(cstr, "%i", this->GetData<int16_t>());
+            snprintf(cstr, sizeof(cstr), "%i", this->GetData<int16_t>());
             break;
         case TDMSType::Integer32:
-            sprintf(cstr, "%i", this->GetData<int32_t>());
+            snprintf(cstr, sizeof(cstr), "%i", this->GetData<int32_t>());
             break;
         case TDMSType::Integer64:
-            sprintf(cstr, "%ld", (long int)this->GetData<int64_t>());
+            snprintf(cstr, sizeof(cstr), "%ld", (long int)this->GetData<int64_t>());
             break;
         case TDMSType::UnsignedInteger8:
-            sprintf(cstr, "%u", this->GetData<uint8_t>());
+            snprintf(cstr, sizeof(cstr), "%u", this->GetData<uint8_t>());
             break;
         case TDMSType::UnsignedInteger16:
-            sprintf(cstr, "%u", this->GetData<uint16_t>());
+            snprintf(cstr, sizeof(cstr), "%u", this->GetData<uint16_t>());
             break;
         case TDMSType::UnsignedInteger32:
-            sprintf(cstr, "%u", this->GetData<uint32_t>());
+            snprintf(cstr, sizeof(cstr), "%u", this->GetData<uint32_t>());
             break;
         case TDMSType::UnsignedInteger64:
-            sprintf(cstr, "%lu", (long unsigned int)this->GetData<uint64_t>());
+            snprintf(cstr, sizeof(cstr), "%lu", (long unsigned int)this->GetData<uint64_t>());
             break;
         case TDMSType::SingleFloat:
         case TDMSType::SingleFloatWithUnit:
-            sprintf(cstr, "%f", this->GetData<float>());
+            snprintf(cstr, sizeof(cstr), "%f", this->GetData<float>());
             break;
         case TDMSType::DoubleFloat:
         case TDMSType::DoubleFloatWithUnit:
-            sprintf(cstr, "%lf", this->GetData<double>());
+            snprintf(cstr, sizeof(cstr), "%lf", this->GetData<double>());
             break;
         case TDMSType::Boolean:
-            sprintf(cstr, "%s", this->GetData<uint8_t>() ? "true" : "false");
+            snprintf(cstr, sizeof(cstr), "%s", this->GetData<uint8_t>() ? "true" : "false");
             break;
         case TDMSType::TimeStamp: {
             uint64_t* t = (uint64_t*)GetRawData();
             double v1 = (double)t[0] / std::pow(2., 64.);
             std::tm time_point;
             std::memset(&time_point, 0, sizeof(std::tm));
-            time_t time = t[1] + time_1904;
+            std::time_t time = static_cast<std::time_t>(t[1]) - kSecondsFrom1904To1970;
 #ifdef _WIN32
             gmtime_s(&time_point, &time);
 #else
@@ -270,20 +246,21 @@ auto DataType::ToString() -> std::string {
             std::stringstream stream;
             stream.imbue(std::locale::classic());
             stream << std::put_time(&time_point, "day: %d month: %m year: %Y time:%T ");
-            sprintf(cstr, "%lf", v1);
+            snprintf(cstr, sizeof(cstr), "%lf", v1);
             return stream.str() + std::string(cstr);
         }
         case TDMSType::String: {
             return GetDataString();
         }
-        default: {
-            std::string message = "Cannot determine of data type ";
-        }
+        default:
+            // Used to fall through and return std::string(cstr) with cstr
+            // uninitialised.
+            return "Error";
     }
     return std::string(cstr);
 }
 
-auto DataType::ToTypeString() -> std::string {
+auto DataType::ToTypeString() const -> std::string {
     switch (m_dataType) {
         case TDMSType::Empty:
             return "Empty";
@@ -324,7 +301,7 @@ auto DataType::ToTypeString() -> std::string {
     return "Error";
 }
 
-auto DataType::PrintVector(int limitDataSize) -> void {
+auto DataType::PrintVector(int limitDataSize) const -> void {
     int i = 0;
     for (auto& r : m_vectorData) {
         if (m_dataType == TDMSType::String) {
@@ -398,7 +375,7 @@ auto DataType::PrintVector(int limitDataSize) -> void {
 
                         std::tm time_point;
                         std::memset(&time_point, 0, sizeof(std::tm));
-                        time_t time = v2 + time_1904;
+                        std::time_t time = static_cast<std::time_t>(v2) - kSecondsFrom1904To1970;
 #ifdef _WIN32
                         gmtime_s(&time_point, &time);
 #else
@@ -407,7 +384,7 @@ auto DataType::PrintVector(int limitDataSize) -> void {
                         std::stringstream stream;
                         stream.imbue(std::locale::classic());
                         stream << std::put_time(&time_point, "day: %d month: %m year: %Y time:%T ");
-                        sprintf(cstr, "%lf", v1);
+                        snprintf(cstr, sizeof(cstr), "%lf", v1);
                         printf("\t\t\t- %s\n", (stream.str() + std::string(cstr)).c_str());
                         break;
                     }
@@ -422,15 +399,13 @@ auto DataType::PrintVector(int limitDataSize) -> void {
     }
 }
 
-auto DataType::GetRawTimeValue(time_t time_val) -> uint64_t* {
-    uint64_t* val = new uint64_t[2];
-    val[0] = 0;  // Subseconds
-    val[1] = time_val - time_1904;
+auto DataType::GetRawTimeValue(std::time_t time_val) -> std::uint64_t* {
+    std::uint64_t* val = new std::uint64_t[2];
+    val[0] = 0;  // Sub-second fraction, in units of 2^-64 s.
+    val[1] = static_cast<std::uint64_t>(static_cast<std::int64_t>(time_val) + kSecondsFrom1904To1970);
     return val;
 }
 
-TDMS::DataType::Raw::~Raw() {}
-
-auto DataType::GetDataString() -> string {
-    return string((char*)m_rawData, m_dataStringLenght);
+auto DataType::GetDataString() const -> std::string {
+    return std::string(m_data.begin(), m_data.end());
 }

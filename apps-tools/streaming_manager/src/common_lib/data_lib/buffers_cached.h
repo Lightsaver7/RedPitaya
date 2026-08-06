@@ -1,9 +1,9 @@
 #ifndef DATA_LIB_BUFFERS_CACHED_H
 #define DATA_LIB_BUFFERS_CACHED_H
 
+#include <semaphore.h>
 #include <map>
 #include <mutex>
-#include <semaphore.h>
 
 #include "buffers_pack.h"
 #include "settings_lib/channels.hpp"
@@ -11,10 +11,9 @@
 
 namespace DataLib {
 
-class CBuffersCached
-{
-public:
-	using Ptr = std::shared_ptr<CBuffersCached>;
+class CBuffersCached {
+   public:
+    using Ptr = std::shared_ptr<CBuffersCached>;
 
     static auto create() -> Ptr;
 
@@ -23,19 +22,19 @@ public:
 
     auto addChannel(DataLib::EDataBuffersPackChannel ch, uint8_t bits, DataLib::CDataBufferDMA::ADC_MODE _adc_mode) -> void;
     auto generateBuffers(std::vector<uio_lib::MemoryRegionT> blocks, size_t headerSize = 0, bool testMode = false) -> void;
-	auto generateBuffersEmptyDAC(dac_channels_t channels, std::vector<uio_lib::MemoryRegionT> blocks, size_t headerSize = 0) -> void;
-	auto generateBuffersEmptyADC(adc_channels_t channels, std::vector<uio_lib::MemoryRegionT> blocks, size_t headerSize = 0) -> void;
+    auto generateBuffersEmptyDAC(dac_channels_t channels, std::vector<uio_lib::MemoryRegionT> blocks, size_t headerSize = 0) -> void;
+    auto generateBuffersEmptyADC(adc_channels_t channels, std::vector<uio_lib::MemoryRegionT> blocks, size_t headerSize = 0) -> void;
 
-	auto writeBuffer(bool timeout = false) -> DataLib::CDataBuffersPackDMA::Ptr;
-	auto unlockBufferWrite() -> void;
+    auto writeBuffer(bool timeout = false) -> DataLib::CDataBuffersPackDMA::Ptr;
+    auto unlockBufferWrite() -> void;
 
-	auto readBuffer() -> DataLib::CDataBuffersPackDMA::Ptr;
-	auto unlockBufferRead() -> void;
+    auto readBuffer() -> DataLib::CDataBuffersPackDMA::Ptr;
+    auto unlockBufferRead() -> void;
 
-	auto initHeadersADC() -> bool;
-	auto initHeadersDAC(dac_channels_t channels) -> bool;
+    auto initHeadersADC() -> bool;
+    auto initHeadersDAC(dac_channels_t channels) -> bool;
 
-	auto fullPercent() -> float;
+    auto fullPercent() -> float;
     auto notifyToDestory() -> bool;
     auto isWaitToDestory() -> bool;
     auto getDataSize() -> uint32_t;
@@ -51,12 +50,13 @@ public:
     CBuffersCached& operator=(const CBuffersCached&&) = delete;
 
     auto getFreeSize() -> uint32_t;
+    auto resetSemaphores() -> void;
 
     std::vector<DataLib::CDataBuffersPackDMA::Ptr> m_buffers;
 
-    uint32_t m_ringStart;
-    uint32_t m_ringEnd;
-    uint32_t m_ringSize;
+    uint32_t m_ringStart = 0;
+    uint32_t m_ringEnd = 0;
+    uint32_t m_ringSize = 0;
 
     std::map<DataLib::EDataBuffersPackChannel, uint8_t> m_channels;
     std::map<DataLib::EDataBuffersPackChannel, DataLib::CDataBufferDMA::ADC_MODE> m_channelsMode;
@@ -66,8 +66,8 @@ public:
     sem_t m_spacesem;
     uint32_t m_dataSize;
 
-	template<typename ChannelsType>
-	auto generateBuffersEmpty(ChannelsType channels, std::vector<uio_lib::MemoryRegionT> blocks, size_t headerSize) -> void;
+    template <typename ChannelsType>
+    auto generateBuffersEmpty(ChannelsType channels, std::vector<uio_lib::MemoryRegionT> blocks, size_t headerSize) -> void;
 };
 
 }  // namespace DataLib

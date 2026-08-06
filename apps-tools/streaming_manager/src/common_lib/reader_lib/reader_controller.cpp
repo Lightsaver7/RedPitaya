@@ -233,7 +233,9 @@ auto CReaderController::resetReadFromBuffer() -> bool {
 
         if (m_fileType.value == CStreamSettings::DataFormat::TDMS) {
             m_currentSegment = 0;
-            m_currentMetadata = -1;
+            m_currentMetadata = 0;
+            m_currentMetadataPtr = std::shared_ptr<TDMS::Metadata>();
+            m_currentVecMetadataPtr = std::vector<std::shared_ptr<TDMS::Metadata>>();
             if (m_tdmsFile)
                 m_tdmsFile->clearPrevMetadata();
             moveNextMetadata();
@@ -493,25 +495,32 @@ auto CReaderController::getBufferTdms(Data& data) -> bool {
 }
 
 auto CReaderController::moveNextMetadata() -> bool {
-    do {
+    while (true) {
         if (m_currentVecMetadataPtr.empty()) {
             if (m_currentSegment >= m_tdmsSegments.size()) {
                 return false;
             }
             m_currentVecMetadataPtr = m_tdmsFile->GetMetadata(m_tdmsSegments[m_currentSegment]);
+            m_currentMetadata = 0;
+            if (m_currentVecMetadataPtr.empty()) {
+                // A segment can legitimately carry no metadata (raw-data-only
+                // continuation segments, or one whose raw data index this
+                // reader cannot decode). Skip it instead of spinning on it.
+                m_currentSegment++;
+                continue;
+            }
         }
-        m_currentMetadata++;
         if (m_currentMetadata < m_currentVecMetadataPtr.size()) {
             m_currentMetadataPtr = m_currentVecMetadataPtr[m_currentMetadata];
+            m_currentMetadata++;
             if (m_currentMetadataPtr->RawData.Size > 0)
                 return true;
         } else {
-            m_currentMetadata = 0;
             m_currentSegment++;
-            m_currentMetadataPtr = shared_ptr<TDMS::Metadata>();
-            m_currentVecMetadataPtr = vector<shared_ptr<TDMS::Metadata>>();
+            m_currentMetadataPtr = std::shared_ptr<TDMS::Metadata>();
+            m_currentVecMetadataPtr = std::vector<std::shared_ptr<TDMS::Metadata>>();
         }
-    } while (true);
+    }
 }
 
 auto CReaderController::isOpen() -> OpenResult {

@@ -84,7 +84,7 @@ auto stopDACServer(CDACStreamingManager::NotifyResult x) -> void {
                     g_serverDACNetConfig->sendDACServerConfigErrorStopped();
                     break;
                 default:
-                    throw runtime_error("Unknown state");
+                    throw std::runtime_error("Unknown state");
                     break;
             }
         }

@@ -14,6 +14,10 @@ CDataBuffersPackDMA::CDataBuffersPackDMA() : m_buffers() {}
 CDataBuffersPackDMA::~CDataBuffersPackDMA() {}
 
 auto CDataBuffersPackDMA::addBuffer(EDataBuffersPackChannel channel, DataLib::CDataBufferDMA::Ptr buffer) -> void {
+    if (buffer == nullptr) {
+        ERROR_LOG("Ignoring a null buffer for channel %d", (int)channel)
+        return;
+    }
     m_buffers[channel] = buffer;
 }
 
@@ -180,7 +184,13 @@ auto CDataBuffersPackDMA::debugPackDAC() -> void {
         }
         printf("\n\t\t\tData: ");
         int dev = item.second->getDACBits() / 8;
-        for (size_t i = 0; i < 200 && i < item.second->getDataLenght() / dev; i++) {
+        if (dev == 0) {
+            // The DAC width is set from the packet header; before it arrives it
+            // is 0, and dividing the data length by it faulted.
+            printf("(no DAC sample width yet)\n");
+            continue;
+        }
+        for (size_t i = 0; i < 200 && i < item.second->getDataLenght() / (size_t)dev; i++) {
             if (dev == 2)
                 printf("%X,", ((uint16_t*)item.second->getMappedDataMemory())[i]);
             if (dev == 1)

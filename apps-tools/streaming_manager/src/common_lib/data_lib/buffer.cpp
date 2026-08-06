@@ -123,7 +123,11 @@ auto CDataBufferDMA::getBitBySample() const -> uint8_t {
 }
 
 auto CDataBufferDMA::getSamplesCount() const -> size_t {
-    return getDataLenght() / (m_bitBySample / 8);
+    const size_t bytesBySample = m_bitBySample / 8;
+    if (bytesBySample == 0) {
+        return 0;
+    }
+    return getDataLenght() / bytesBySample;
 }
 
 auto CDataBufferDMA::getSamplesWithLost() const -> uint64_t {
@@ -187,7 +191,8 @@ auto CDataBufferDMA::getWriteSize() -> uint32_t {
 }
 
 auto CDataBufferDMA::getWriteSizeLeft() -> uint32_t {
-    return getBufferFullLenght() - m_writeSize;
+    const size_t full = getBufferFullLenght();
+    return full > m_writeSize ? static_cast<uint32_t>(full - m_writeSize) : 0;
 }
 
 auto CDataBufferDMA::addWriteSize(uint32_t size) -> void {

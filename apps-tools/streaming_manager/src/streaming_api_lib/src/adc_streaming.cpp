@@ -16,7 +16,7 @@
 
 class ADCCb : public ConfigCallback {
 
-    void configError(ConfigStreamClient* cl, std::string host, int error) override {
+    void configError(ConfigStreamClient*, std::string host, [[maybe_unused]] int error) override {
         if (m_terminate)
             m_terminate->at(host) = true;
     }
@@ -25,23 +25,23 @@ class ADCCb : public ConfigCallback {
         if (m_terminate)
             m_terminate->at(host) = true;
     }
-    void adcServerStoppedNoActiveChannels(ConfigStreamClient*, std::string host) override {
+    void adcServerStoppedNoActiveChannels(ConfigStreamClient*, [[maybe_unused]] std::string host) override {
         if (m_terminate)
             m_terminate->at(host) = true;
     }
-    void adcServerStoppedMemError(ConfigStreamClient*, std::string host) override {
+    void adcServerStoppedMemError(ConfigStreamClient*, [[maybe_unused]] std::string host) override {
         if (m_terminate)
             m_terminate->at(host) = true;
     }
-    void adcServerStoppedMemModify(ConfigStreamClient*, std::string host) override {
+    void adcServerStoppedMemModify(ConfigStreamClient*, [[maybe_unused]] std::string host) override {
         if (m_terminate)
             m_terminate->at(host) = true;
     }
-    void adcServerStoppedSDFull(ConfigStreamClient*, std::string host) override {
+    void adcServerStoppedSDFull(ConfigStreamClient*, [[maybe_unused]] std::string host) override {
         if (m_terminate)
             m_terminate->at(host) = true;
     }
-    void adcServerStoppedSDDone(ConfigStreamClient*, std::string host) override {
+    void adcServerStoppedSDDone(ConfigStreamClient*, [[maybe_unused]] std::string host) override {
         if (m_terminate)
             m_terminate->at(host) = true;
     }
@@ -59,38 +59,37 @@ struct ADCStreamClient::Impl {
     std::map<std::string, bool> m_terminate;
     std::mutex m_smutex;
     std::atomic<int> m_runClientCounter;
-	auto runClient(ADCStreamClient *client, std::string host, uint32_t size, adc_channels_t activeChannels) -> void;
-	std::vector<std::thread *> clients;
-	std::shared_ptr<ADCCb> m_configCallback;
+    auto runClient(ADCStreamClient* client, std::string host, uint32_t size, adc_channels_t activeChannels) -> void;
+    std::vector<std::thread*> clients;
+    std::shared_ptr<ADCCb> m_configCallback;
 };
 
-auto ADCStreamClient::Impl::runClient(ADCStreamClient *client, std::string host, uint32_t size, adc_channels_t activeChannels) -> void
-{
-	auto memoryManager = new uio_lib::CMemoryManager();
-	auto buffers = DataLib::CBuffersCached::create();
-	memoryManager->setMemoryBlockSize(size);
-	memoryManager->reallocateBlocks();
-	auto blocks = memoryManager->getFreeBlockCount();
-	auto reserved __attribute__((unused)) = memoryManager->reserveMemory(uio_lib::MM_ADC, blocks, activeChannels.count());
-	buffers->generateBuffersEmptyADC(activeChannels, memoryManager->getRegions(uio_lib::MM_ADC), DataLib::sizeHeader());
-	TRACE_SHORT("Reserved blocks %d", reserved)
+auto ADCStreamClient::Impl::runClient(ADCStreamClient* client, std::string host, uint32_t size, adc_channels_t activeChannels) -> void {
+    auto memoryManager = new uio_lib::CMemoryManager();
+    auto buffers = DataLib::CBuffersCached::create();
+    memoryManager->setMemoryBlockSize(size);
+    memoryManager->reallocateBlocks();
+    auto blocks = memoryManager->getFreeBlockCount();
+    auto reserved __attribute__((unused)) = memoryManager->reserveMemory(uio_lib::MM_ADC, blocks, activeChannels.count());
+    buffers->generateBuffersEmptyADC(activeChannels, memoryManager->getRegions(uio_lib::MM_ADC), DataLib::sizeHeader());
+    TRACE_SHORT("Reserved blocks %d", reserved)
 
-	m_terminate[host] = false;
+    m_terminate[host] = false;
 
-	auto g_s_buffers_w = std::weak_ptr<DataLib::CBuffersCached>(buffers);
+    auto g_s_buffers_w = std::weak_ptr<DataLib::CBuffersCached>(buffers);
 
-	auto g_asionet = net_lib::CAsioNet::create(net_lib::M_CLIENT, host, NET_ADC_STREAMING_PORT, buffers);
+    auto g_asionet = net_lib::CAsioNet::create(net_lib::M_CLIENT, host, NET_ADC_STREAMING_PORT, buffers);
 
-	g_asionet->clientConnectNotify.connect([&](std::string host) {
-		const std::lock_guard lock(m_smutex);
+    g_asionet->clientConnectNotify.connect([&](std::string host) {
+        const std::lock_guard lock(m_smutex);
         if (m_verbose)
             aprintf(stdout, "%s Connect %s\n", getTS(": ").c_str(), host.c_str());
         if (m_callback)
             m_callback->connected(client, host);
         m_runClientCounter--;
-	});
+    });
 
-	g_asionet->clientDisconnectNotify.connect([&](std::string host) {
+    g_asionet->clientDisconnectNotify.connect([&](std::string host) {
         const std::lock_guard lock(m_smutex);
         if (m_verbose)
             aprintf(stdout, "%s Disconnected %s\n", getTS(": ").c_str(), host.c_str());
@@ -221,20 +220,20 @@ auto ADCStreamClient::startStreaming() -> bool {
         return false;
     }
 
-	std::map<std::string, adc_channels_t> activeChannels;
-	if (!requestActiveChannelsCommon(m_pimpl->m_configClient, hosts, &activeChannels, m_pimpl->m_verbose)) {
-		aprintf(stderr, "%s Can't get active channels\n", getTS(": ").c_str());
+    std::map<std::string, adc_channels_t> activeChannels;
+    if (!requestActiveChannelsCommon(m_pimpl->m_configClient, hosts, &activeChannels, m_pimpl->m_verbose)) {
+        aprintf(stderr, "%s Can't get active channels\n", getTS(": ").c_str());
         return false;
-	}
+    }
 
-	std::map<string, StateRunningHosts> runned_hosts;
+    std::map<std::string, StateRunningHosts> runned_hosts;
     stopStreaming();
 
     if (requestStartStreamingCommon(m_pimpl->m_configClient, masterHosts, slaveHosts, &runned_hosts, m_pimpl->m_verbose)) {
         m_pimpl->m_runClientCounter = runned_hosts.size();
         for (auto kv : runned_hosts) {
-			if (kv.second == StateRunningHosts::TCP && activeChannels[kv.first].count() > 0)
-				m_pimpl->clients.push_back(new std::thread(&ADCStreamClient::Impl::runClient, m_pimpl, this, kv.first, blockSizes[kv.first], activeChannels[kv.first]));
+            if (kv.second == StateRunningHosts::TCP && activeChannels[kv.first].count() > 0)
+                m_pimpl->clients.push_back(new std::thread(&ADCStreamClient::Impl::runClient, m_pimpl, this, kv.first, blockSizes[kv.first], activeChannels[kv.first]));
             else {
                 m_pimpl->m_runClientCounter--;
             }
@@ -247,7 +246,7 @@ auto ADCStreamClient::startStreaming() -> bool {
             timeout = (std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()).time_since_epoch().count() - beginTime > 5000);
         }
 
-        std::vector<string> runnedThreads;
+        std::vector<std::string> runnedThreads;
         for (const auto& [key, _] : runned_hosts) {
             runnedThreads.push_back(key);
         }

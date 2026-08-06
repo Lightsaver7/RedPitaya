@@ -1,8 +1,8 @@
 #ifndef CALLBACKS_H
 #define CALLBACKS_H
 
-#include <array>
 #include <stdint.h>
+#include <array>
 #include <string>
 #include <vector>
 
@@ -38,10 +38,10 @@ class ConfigCallback {
     virtual void configErrorTimeout(ConfigStreamClient*, std::string) {}
     virtual void configErrorFileMissed(ConfigStreamClient*, std::string) {}
     virtual void configMemoryBlockSize(ConfigStreamClient*, std::string, size_t) {}
-	virtual void configActiveChannels(ConfigStreamClient *, std::string, std::array<bool, 4>) {}
+    virtual void configActiveChannels(ConfigStreamClient*, std::string, std::array<bool, 4>) {}
 
-	virtual void configSuccessSend(ConfigStreamClient *, std::string) {}
-	virtual void configFailSend(ConfigStreamClient*, std::string) {}
+    virtual void configSuccessSend(ConfigStreamClient*, std::string) {}
+    virtual void configFailSend(ConfigStreamClient*, std::string) {}
     virtual void configSuccessSave(ConfigStreamClient*, std::string) {}
     virtual void configFailSave(ConfigStreamClient*, std::string) {}
 
@@ -75,7 +75,7 @@ class ConfigCallback {
 class ADCCallback {
    public:
     virtual ~ADCCallback() {}
-    virtual void receivePack(ADCStreamClient*, ADCPack& pack) {}
+    virtual void receivePack(ADCStreamClient*, ADCPack&) {}
     virtual void connected(ADCStreamClient*, std::string) {}
     virtual void disconnected(ADCStreamClient*, std::string) {}
     virtual void error(ADCStreamClient*, std::string, int) {}
@@ -84,7 +84,7 @@ class ADCCallback {
 class DACCallback {
    public:
     virtual ~DACCallback() {}
-    virtual void sentPack(DACStreamClient*, uint32_t ch1_size, uint32_t ch2_size) {}
+    virtual void sentPack(DACStreamClient*, [[maybe_unused]] uint32_t ch1_size, [[maybe_unused]] uint32_t ch2_size) {}
     virtual void connected(DACStreamClient*, std::string) {}
     virtual void disconnected(DACStreamClient*, std::string) {}
     virtual void error(DACStreamClient*, std::string, int) {}
@@ -96,7 +96,7 @@ class DACCallback {
     virtual void stoppedMemError(DACStreamClient*, std::string) {}
     virtual void stoppedMemModify(DACStreamClient*, std::string) {}
 
-    virtual bool streamData8Bit(DACStreamClient*, int8_t* ch1_8Bit, int8_t* ch2_8Bit, size_t size) { return true; }
-    virtual bool streamData16Bit(DACStreamClient*, int16_t* ch1_16Bit, int16_t* ch2_16Bit, size_t size) { return true; }
+    virtual bool streamData8Bit(DACStreamClient*, [[maybe_unused]] int8_t* ch1_8Bit, [[maybe_unused]] int8_t* ch2_8Bit, [[maybe_unused]] size_t size) { return true; }
+    virtual bool streamData16Bit(DACStreamClient*, [[maybe_unused]] int16_t* ch1_16Bit, [[maybe_unused]] int16_t* ch2_16Bit, [[maybe_unused]] size_t size) { return true; }
 };
 #endif

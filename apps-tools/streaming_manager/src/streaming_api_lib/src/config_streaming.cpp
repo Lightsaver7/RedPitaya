@@ -38,35 +38,35 @@ ConfigStreamClient::ConfigStreamClient() {
             cl->configMemoryBlockSize(this, host, atoi(size.c_str()));
     });
 
-	m_pimpl->m_configClient->getActiveChannelsNofiy.connect([&](std::string host, adc_channels_t ac) {
-		const std::lock_guard lock(m_pimpl->m_smutex);
-		if (m_pimpl->m_verbose)
-			aprintf(stdout, "%s Active channels %s for %s\n", getTS(": ").c_str(), ac.format().c_str(), host.c_str());
-		for (auto cl : m_pimpl->m_callback) {
-			std::array<bool, 4> ch;
-			ch[0] = ac.isEnabled(ADCChannels::ADC_CH1);
-			ch[1] = ac.isEnabled(ADCChannels::ADC_CH2);
-			ch[2] = ac.isEnabled(ADCChannels::ADC_CH3);
-			ch[3] = ac.isEnabled(ADCChannels::ADC_CH4);
-			cl->configActiveChannels(this, host, ch);
-		}
-	});
+    m_pimpl->m_configClient->getActiveChannelsNofiy.connect([&](std::string host, adc_channels_t ac) {
+        const std::lock_guard lock(m_pimpl->m_smutex);
+        if (m_pimpl->m_verbose)
+            aprintf(stdout, "%s Active channels %s for %s\n", getTS(": ").c_str(), ac.format().c_str(), host.c_str());
+        for (auto cl : m_pimpl->m_callback) {
+            std::array<bool, 4> ch;
+            ch[0] = ac.isEnabled(ADCChannels::ADC_CH1);
+            ch[1] = ac.isEnabled(ADCChannels::ADC_CH2);
+            ch[2] = ac.isEnabled(ADCChannels::ADC_CH3);
+            ch[3] = ac.isEnabled(ADCChannels::ADC_CH4);
+            cl->configActiveChannels(this, host, ch);
+        }
+    });
 
-	m_pimpl->m_configClient->serverStoppedNofiy.connect([&](std::string host) {
-		if (m_pimpl->m_verbose)
-			aprintf(stderr, "%s Streaming stopped: %s [OK]\n", getTS(": ").c_str(), host.c_str());
+    m_pimpl->m_configClient->serverStoppedNofiy.connect([&](std::string host) {
+        if (m_pimpl->m_verbose)
+            aprintf(stderr, "%s Streaming stopped: %s [OK]\n", getTS(": ").c_str(), host.c_str());
         for (auto cl : m_pimpl->m_callback)
             cl->adcServerStopped(this, host);
-	});
+    });
 
-	m_pimpl->m_configClient->serverStoppedNoActiveChannelsNofiy.connect([&](std::string host) {
-		if (m_pimpl->m_verbose)
+    m_pimpl->m_configClient->serverStoppedNoActiveChannelsNofiy.connect([&](std::string host) {
+        if (m_pimpl->m_verbose)
             aprintf(stderr, "%s Streaming stopped: %s. No active channels [OK].\n", getTS(": ").c_str(), host.c_str());
         for (auto cl : m_pimpl->m_callback)
             cl->adcServerStoppedNoActiveChannels(this, host);
-	});
+    });
 
-	m_pimpl->m_configClient->serverStoppedMemErrorNofiy.connect([&](std::string host) {
+    m_pimpl->m_configClient->serverStoppedMemErrorNofiy.connect([&](std::string host) {
         if (m_pimpl->m_verbose)
             aprintf(stderr, "%s Streaming stopped: %s. Not enough DMA memory [OK].\n", getTS(": ").c_str(), host.c_str());
         for (auto cl : m_pimpl->m_callback)
@@ -264,7 +264,7 @@ auto ConfigStreamClient::connect(std::vector<std::string> hosts) -> bool {
         connected++;
     });
 
-    m_pimpl->m_configClient->errorNofiy.connect([&](ClientNetConfigManager::Errors errors, std::string host, error_code err) {
+    m_pimpl->m_configClient->errorNofiy.connect([&](ClientNetConfigManager::Errors errors, std::string host, std::error_code err) {
         const std::lock_guard lock(m_pimpl->m_smutex);
         if (errors == ClientNetConfigManager::Errors::SERVER_INTERNAL) {
             aprintf(stderr, "%s Error: %s %s\n", getTS(": ").c_str(), host.c_str(), err.message().c_str());
@@ -392,12 +392,11 @@ auto ConfigStreamClient::requestADCServerFPGAStart(const std::string host) -> bo
     return m_pimpl->m_configClient->sendADCFPGAStart(host);
 }
 
-auto ConfigStreamClient::requestDACServerStart(const std::string host, bool ch1Enable, bool ch2Enable) -> bool
-{
-	dac_channels_t ac;
-	ac[DACChannels::DAC_CH1] = ch1Enable;
-	ac[DACChannels::DAC_CH2] = ch2Enable;
-	return m_pimpl->m_configClient->sendDACServerStart(host, ac);
+auto ConfigStreamClient::requestDACServerStart(const std::string host, bool ch1Enable, bool ch2Enable) -> bool {
+    dac_channels_t ac;
+    ac[DACChannels::DAC_CH1] = ch1Enable;
+    ac[DACChannels::DAC_CH2] = ch2Enable;
+    return m_pimpl->m_configClient->sendDACServerStart(host, ac);
 }
 
 auto ConfigStreamClient::requestSaveSettings(const std::string host) -> bool {

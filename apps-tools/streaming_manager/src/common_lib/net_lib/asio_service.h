@@ -3,8 +3,6 @@
 
 #include "asio.hpp"
 
-using namespace std;
-
 namespace net_lib {
 
 class CAsioService {

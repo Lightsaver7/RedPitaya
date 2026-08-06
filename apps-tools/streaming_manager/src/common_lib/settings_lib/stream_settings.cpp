@@ -2,72 +2,44 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
+#include <sstream>
+#include <stdexcept>
 #include "data_lib/network_header.h"
 #include "json/json.h"
 #include "logger_lib/file_logger.h"
 
 #define FILE_PATH "/home/redpitaya/streaming_files/dac"
 
-using namespace std;
+namespace {
 
 std::string g_dirPath = {FILE_PATH};
 
-int to_int(char const* s) {
+auto to_uint64(char const* s) -> uint64_t {
     if (s == NULL || *s == '\0')
         throw std::invalid_argument("null or empty string argument");
-
-    bool negate = (s[0] == '-');
-    if (*s == '+' || *s == '-')
-        ++s;
-
-    if (*s == '\0')
-        throw std::invalid_argument("sign character only.");
-
-    int result = 0;
-    while (*s) {
-        if (*s < '0' || *s > '9')
-            throw std::invalid_argument("invalid input string");
-        result = result * 10 - (*s - '0');  //assume negative number
-        ++s;
-    }
-    return negate ? result : -result;  //-result is positive!
-}
-
-uint32_t to_uint(char const* s) {
-    if (s == NULL || *s == '\0')
-        throw std::invalid_argument("null or empty string argument");
-
-    if (*s == '\0')
-        throw std::invalid_argument("sign character only.");
-
-    uint32_t result = 0;
-    while (*s) {
-        if (*s < '0' || *s > '9')
-            throw std::invalid_argument("invalid input string");
-        int x = (*s - '0');
-        result = result * 10 + x;
-        ++s;
-    }
-    return result;  //-result is positive!
-}
-
-uint64_t to_uint64(char const* s) {
-    if (s == NULL || *s == '\0')
-        throw std::invalid_argument("null or empty string argument");
-
-    if (*s == '\0')
-        throw std::invalid_argument("sign character only.");
 
     uint64_t result = 0;
     while (*s) {
         if (*s < '0' || *s > '9')
             throw std::invalid_argument("invalid input string");
-        int x = (*s - '0');
-        result = result * 10 + x;
+        const uint64_t digit = static_cast<uint64_t>(*s - '0');
+        if (result > (std::numeric_limits<uint64_t>::max() - digit) / 10)
+            throw std::out_of_range("value does not fit in 64 bits");
+        result = result * 10 + digit;
         ++s;
     }
-    return result;  //-result is positive!
+    return result;
 }
+
+auto to_uint(char const* s) -> uint32_t {
+    const uint64_t wide = to_uint64(s);
+    if (wide > std::numeric_limits<uint32_t>::max())
+        throw std::out_of_range("value does not fit in 32 bits");
+    return static_cast<uint32_t>(wide);
+}
+
+}  // namespace
 
 CStreamSettings::CStreamSettings() {
     resetDefault();
@@ -96,17 +68,17 @@ auto CStreamSettings::copy(const CStreamSettings& src) -> void {
     m_memorysettings = src.m_memorysettings;
 }
 
-bool CStreamSettings::writeToFile(string _filename) {
+bool CStreamSettings::writeToFile(std::string _filename) {
     const std::string json_file = toJson();
 
     try {
-        auto path = filesystem::path(_filename);
-        filesystem::create_directories(path.parent_path());
+        auto path = std::filesystem::path(_filename);
+        std::filesystem::create_directories(path.parent_path());
     } catch (std::filesystem::filesystem_error const& ex) {
         ERROR_LOG("Error create dir %s", ex.what())
     }
 
-    ofstream file(_filename, ios::out | ios::trunc);
+    std::ofstream file(_filename, std::ios::out | std::ios::trunc);
     if (!file.is_open()) {
         ERROR_LOG("File write failed %s", std::strerror(errno))
         return false;
@@ -135,9 +107,9 @@ auto CStreamSettings::toJson() const -> std::string {
     adc_config["adc_capture_time"] = getADCCaptureTime().name();
 
     for (auto i = 1u; i <= 4; i++) {
-        adc_config["channel_state_" + to_string(i)] = getADCChannels(i).name();
-        adc_config["channel_attenuator_" + to_string(i)] = getADCAttenuator(i).name();
-        adc_config["channel_ac_dc_" + to_string(i)] = getADCAC_DC(i).name();
+        adc_config["channel_state_" + std::to_string(i)] = getADCChannels(i).name();
+        adc_config["channel_attenuator_" + std::to_string(i)] = getADCAttenuator(i).name();
+        adc_config["channel_ac_dc_" + std::to_string(i)] = getADCAC_DC(i).name();
     }
 
     dac_config["dac_rate"] = getDACSpeed();
@@ -149,7 +121,7 @@ auto CStreamSettings::toJson() const -> std::string {
     dac_config["repeatCount"] = getDACRepeatCount();
 
     for (auto i = 1u; i <= 2; i++) {
-        dac_config["channel_gain_" + to_string(i)] = getDACGain(i).name();
+        dac_config["channel_gain_" + std::to_string(i)] = getDACGain(i).name();
     }
 
     memory_config["block_size"] = getMemoryBlockSize();
@@ -178,6 +150,11 @@ auto CStreamSettings::parseJson(const std::string& json) -> bool {
     auto is = std::istringstream(json);
     if (!parseFromStream(builder, is, &root, &errs)) {
         std::cerr << "[CStreamSettings] Error parse json" << errs << std::endl;
+        return false;
+    }
+
+    if (!root.isObject()) {
+        std::cerr << "[CStreamSettings] Error parse json. The document is not an object" << std::endl;
         return false;
     }
 
@@ -220,12 +197,12 @@ auto CStreamSettings::parseJson(const std::string& json) -> bool {
         if (adc_config.isMember("use_calib"))
             setADCCalibration(State::from_string(adc_config["use_calib"].asString()));
         for (auto i = 1u; i <= 4; i++) {
-            if (adc_config.isMember("channel_state_" + to_string(i)))
-                setADCChannels(i, State::from_string(adc_config["channel_state_" + to_string(i)].asString()));
-            if (adc_config.isMember("channel_attenuator_" + to_string(i)))
-                setADCAttenuator(i, Attenuator::from_string(adc_config["channel_attenuator_" + to_string(i)].asString()));
-            if (adc_config.isMember("channel_attenuator_" + to_string(i)))
-                setADCAC_DC(i, AC_DC::from_string(adc_config["channel_ac_dc_" + to_string(i)].asString()));
+            if (adc_config.isMember("channel_state_" + std::to_string(i)))
+                setADCChannels(i, State::from_string(adc_config["channel_state_" + std::to_string(i)].asString()));
+            if (adc_config.isMember("channel_attenuator_" + std::to_string(i)))
+                setADCAttenuator(i, Attenuator::from_string(adc_config["channel_attenuator_" + std::to_string(i)].asString()));
+            if (adc_config.isMember("channel_ac_dc_" + std::to_string(i)))
+                setADCAC_DC(i, AC_DC::from_string(adc_config["channel_ac_dc_" + std::to_string(i)].asString()));
         }
 
         if (dac_config.isMember("dac_rate"))
@@ -241,8 +218,8 @@ auto CStreamSettings::parseJson(const std::string& json) -> bool {
         if (dac_config.isMember("repeatCount"))
             setDACRepeatCount(dac_config["repeatCount"].asUInt());
         for (auto i = 1u; i <= 2; i++) {
-            if (dac_config.isMember("channel_gain_" + to_string(i)))
-                setDACGain(i, DACGain::from_string(dac_config["channel_gain_" + to_string(i)].asString()));
+            if (dac_config.isMember("channel_gain_" + std::to_string(i)))
+                setDACGain(i, DACGain::from_string(dac_config["channel_gain_" + std::to_string(i)].asString()));
         }
 
         if (memory_config.isMember("block_size"))
@@ -282,7 +259,7 @@ auto CStreamSettings::toString() const -> std::string {
 
     str += "\n******************** DAC streaming ********************\n";
     channels = "";
-    for (auto i = 1; i <= 4; i++) {
+    for (auto i = 1; i <= 2; i++) {
         channels += "\tCh " + std::to_string(i) + " Gain (250-12 only): " + getDACGain(i).to_string() + "\n";
     }
     str += "Channels:\n" + channels;
@@ -302,8 +279,8 @@ auto CStreamSettings::toString() const -> std::string {
     return str;
 }
 
-auto CStreamSettings::readFromFile(string _filename) -> bool {
-    std::ifstream file(_filename, ios::in);
+auto CStreamSettings::readFromFile(std::string _filename) -> bool {
+    std::ifstream file(_filename, std::ios::in);
     if (!file.is_open()) {
         ERROR_LOG("File %s read failed: %s", _filename.c_str(), std::strerror(errno))
         return false;
@@ -378,7 +355,9 @@ auto CStreamSettings::getADCResolution() const -> CStreamSettings::Resolution {
 }
 
 auto CStreamSettings::setADCDecimation(uint32_t _decimation) -> bool {
-    if (_decimation > 1024 * 64)
+    // 1 to 65536. Zero used to be accepted although it is not a usable
+    // decimation factor, and getHelp() advertised a third range, 1-65535.
+    if (_decimation == 0 || _decimation > 1024 * 64)
         return false;
     m_adcsettings.m_decimation = _decimation;
     return true;
@@ -568,15 +547,15 @@ auto CStreamSettings::setValue(std::string key, std::string value) -> bool {
         }
 
         for (auto i = 1u; i <= 4; i++) {
-            if (key == "channel_state_" + to_string(i)) {
+            if (key == "channel_state_" + std::to_string(i)) {
                 return setADCChannels(i, State::from_string(value));
             }
 
-            if (key == "channel_attenuator_" + to_string(i)) {
+            if (key == "channel_attenuator_" + std::to_string(i)) {
                 return setADCAttenuator(i, Attenuator::from_string(value));
             }
 
-            if (key == "channel_ac_dc_" + to_string(i)) {
+            if (key == "channel_ac_dc_" + std::to_string(i)) {
                 return setADCAC_DC(i, AC_DC::from_string(value));
             }
         }
@@ -591,8 +570,10 @@ auto CStreamSettings::setValue(std::string key, std::string value) -> bool {
         }
 
         if (key == "file_type_sd") {
-            setDACFileType(DataFormat::from_string(value));
-            return true;
+            // Report the setter's answer, the way adc_decimation does: BIN is
+            // not a valid DAC playback format and the write is refused, which
+            // this used to hide behind an unconditional true.
+            return setDACFileType(DataFormat::from_string(value));
         }
 
         if (key == "dac_pass_mode") {
@@ -611,7 +592,7 @@ auto CStreamSettings::setValue(std::string key, std::string value) -> bool {
         }
 
         for (auto i = 1u; i <= 2; i++) {
-            if (key == "channel_gain_" + to_string(i)) {
+            if (key == "channel_gain_" + std::to_string(i)) {
                 return setDACGain(i, DACGain::from_string(value));
             }
         }
@@ -677,15 +658,15 @@ auto CStreamSettings::getValue(std::string key) -> std::string {
         }
 
         for (auto i = 1u; i <= 4; i++) {
-            if (key == "channel_state_" + to_string(i)) {
+            if (key == "channel_state_" + std::to_string(i)) {
                 return getADCChannels(i).name();
             }
 
-            if (key == "channel_attenuator_" + to_string(i)) {
+            if (key == "channel_attenuator_" + std::to_string(i)) {
                 return getADCAttenuator(i).name();
             }
 
-            if (key == "channel_ac_dc_" + to_string(i)) {
+            if (key == "channel_ac_dc_" + std::to_string(i)) {
                 return getADCAC_DC(i).name();
             }
         }
@@ -715,7 +696,7 @@ auto CStreamSettings::getValue(std::string key) -> std::string {
         }
 
         for (auto i = 1u; i <= 2; i++) {
-            if (key == "channel_gain_" + to_string(i)) {
+            if (key == "channel_gain_" + std::to_string(i)) {
                 return getDACGain(i).name();
             }
         }
@@ -764,13 +745,13 @@ auto CStreamSettings::getHelp() -> std::string {
     s += "samples_limit_sd\t: An unsigned integer value. 0 - Disables write limit.\n";
     s += "adc_pass_mode\t\t: " + concat(CStreamSettings::PassMode::names(), CStreamSettings::PassMode::count) + "\n";
     s += "resolution\t\t: " + concat(CStreamSettings::Resolution::names(), CStreamSettings::Resolution::count) + "\n";
-    s += "adc_decimation\t\t: An unsigned integer value: 1-65535.\n";
+    s += "adc_decimation\t\t: An unsigned integer value: 1-65536.\n";
     s += "use_calib\t\t: " + concat(CStreamSettings::State::names(), CStreamSettings::State::count) + "\n";
     s += "adc_capture_time\t\t: " + concat(CStreamSettings::ADCCaptureTime::names(), CStreamSettings::ADCCaptureTime::count) + "\n";
     for (auto i = 1u; i <= 4; i++) {
-        s += "channel_state_" + to_string(i) + "\t\t: " + concat(CStreamSettings::State::names(), CStreamSettings::State::count) + "\n";
-        s += "channel_attenuator_" + to_string(i) + "\t: " + concat(CStreamSettings::Attenuator::names(), CStreamSettings::Attenuator::count) + "\n";
-        s += "channel_ac_dc_" + to_string(i) + "\t\t: " + concat(CStreamSettings::AC_DC::names(), CStreamSettings::AC_DC::count) + "\n";
+        s += "channel_state_" + std::to_string(i) + "\t\t: " + concat(CStreamSettings::State::names(), CStreamSettings::State::count) + "\n";
+        s += "channel_attenuator_" + std::to_string(i) + "\t: " + concat(CStreamSettings::Attenuator::names(), CStreamSettings::Attenuator::count) + "\n";
+        s += "channel_ac_dc_" + std::to_string(i) + "\t\t: " + concat(CStreamSettings::AC_DC::names(), CStreamSettings::AC_DC::count) + "\n";
     }
     s += "dac_rate\t\t: An unsigned integer value. Indicates the rate for signal generation. The maximum value should not be greater than "
          "the base frequency of the FPGA.\n";
@@ -780,7 +761,7 @@ auto CStreamSettings::getHelp() -> std::string {
     s += "repeat\t\t\t: " + concat(CStreamSettings::DACRepeat::names(), CStreamSettings::DACRepeat::count) + "\n";
     s += "repeatCount\t\t: An unsigned integer value.\n";
     for (auto i = 1u; i <= 2; i++) {
-        s += "channel_gain_" + to_string(i) + "\t\t: " + concat(CStreamSettings::DACGain::names(), CStreamSettings::DACGain::count) + "\n";
+        s += "channel_gain_" + std::to_string(i) + "\t\t: " + concat(CStreamSettings::DACGain::names(), CStreamSettings::DACGain::count) + "\n";
     }
 
     s += "block_size\t\t: An unsigned integer value. The value must be less than the reserved memory in the system divided by 16. By "

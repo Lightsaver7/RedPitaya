@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION ${CMAKEVERS})
 
 project(data_lib)
 
+option(BUILD_UNIT_TESTS "Build data_lib unit tests (GoogleTest)" ON)
+option(DATA_ENABLE_SANITIZERS "Build data_lib and its tests with ASan+UBSan" OFF)
 
 message(STATUS "${Yellow}Project=${PROJECT_NAME}${ColourReset}")
 message(STATUS "RedPitaya platform=${RP_PLATFORM}")
@@ -20,6 +22,8 @@ message(STATUS "Compiler C++ path: ${CMAKE_CXX_COMPILER}")
 message(STATUS "Compiler C++ ID: ${CMAKE_CXX_COMPILER_ID}")
 message(STATUS "Compiler C++version: ${CMAKE_CXX_COMPILER_VERSION}")
 message(STATUS "Compiler C++ is part: ${CMAKE_COMPILER_IS_GNUCXX}")
+
+message(STATUS "Build ${PROJECT_NAME} unit tests (GoogleTest): ${BUILD_UNIT_TESTS}")
 
 FILE(GLOB_RECURSE INC_ALL "*.h")
 
@@ -53,6 +57,25 @@ target_sources(${PROJECT_NAME} PRIVATE ${src})
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE pthread stdc++)
+
+
+if(DATA_ENABLE_SANITIZERS)
+    set(_data_sanitizer_flags -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g)
+    target_compile_options(${PROJECT_NAME} PUBLIC ${_data_sanitizer_flags})
+    target_link_options(${PROJECT_NAME} PUBLIC ${_data_sanitizer_flags})
+endif()
+
+if(BUILD_UNIT_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+
+    add_custom_target(rp_data_lib_run_tests ALL
+        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        COMMENT "Running data_lib unit tests (ctest) - the build fails if any test fails"
+        VERBATIM)
+    add_dependencies(rp_data_lib_run_tests data_lib_tests)
+endif()
 
 
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/bin/include/${PROJECT_NAME}")

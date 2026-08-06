@@ -1,6 +1,8 @@
 #include "file.h"
 
 using namespace TDMS;
+// The public headers no longer pull std into scope; do it here instead of
+// qualifying every name in this implementation file.
 
 template <typename T, typename Key>
 bool key_exists(const T& container, const Key& key) {
@@ -13,23 +15,23 @@ File::~File() {
     Close();
 }
 
-auto File::Print(vector<shared_ptr<Metadata>>& data, bool PrintRaw, long limitData) -> void {
+auto File::Print(std::vector<std::shared_ptr<Metadata>>& data, bool PrintRaw, long limitData) -> void {
     for (auto& m : data) {
-        cout << "Path: " << m->PathStr << endl;
-        cout << "\tProperties:" << m->Properties.size() << endl;
+        std::cout << "Path: " << m->PathStr << std::endl;
+        std::cout << "\tProperties:" << m->Properties.size() << std::endl;
         for (auto& p : m->Properties) {
-            cout << "\t\tKey: " << p.first << "\tValue:" << p.second.ToString() << endl;
+            std::cout << "\t\tKey: " << p.first << "\tValue:" << p.second.ToString() << std::endl;
         }
-        cout << "\tRaw Data:" << m->RawData.Size << endl;
+        std::cout << "\tRaw Data:" << m->RawData.Size << std::endl;
         if (m->RawData.Size > 0) {
-            cout << "\t\t- Type:" << m->RawData.DataType.ToTypeString() << endl;
-            cout << "\t\t- Count:" << m->RawData.Count << endl;
-            cout << "\t\t- IsInterleaved:" << m->RawData.IsInterleaved << endl;
-            cout << "\t\t- Dimension:" << m->RawData.Dimension << endl;
-            cout << "\t\t- InterleaveStride:" << m->RawData.InterleaveStride << endl;
-            cout << "\t\t- Offset:" << m->RawData.Offset << endl;
+            std::cout << "\t\t- Type:" << m->RawData.DataType.ToTypeString() << std::endl;
+            std::cout << "\t\t- Count:" << m->RawData.Count << std::endl;
+            std::cout << "\t\t- IsInterleaved:" << m->RawData.IsInterleaved << std::endl;
+            std::cout << "\t\t- Dimension:" << m->RawData.Dimension << std::endl;
+            std::cout << "\t\t- InterleaveStride:" << m->RawData.InterleaveStride << std::endl;
+            std::cout << "\t\t- Offset:" << m->RawData.Offset << std::endl;
             if (PrintRaw) {
-                cout << "\t\t\tRAW DATA:" << endl;
+                std::cout << "\t\t\tRAW DATA:" << std::endl;
                 m->RawData.DataType.PrintVector(limitData);
             }
         }
@@ -40,56 +42,61 @@ auto File::clearPrevMetadata() -> void {
     m_prevMetaDataLookup.clear();
 }
 
-auto File::ReadFile(string m_fileName) -> vector<shared_ptr<Metadata>> {
+auto File::ReadFile(std::string m_fileName) -> std::vector<std::shared_ptr<Metadata>> {
     std::fstream ifs;
-    ifs.open(m_fileName, ios::binary | std::ifstream::in);
+    ifs.open(m_fileName, std::ios::binary | std::ifstream::in);
     if (ifs.fail()) {
-        cout << "File " << m_fileName << " not exist" << std::endl;
-        return vector<shared_ptr<Metadata>>();
+        std::cout << "File " << m_fileName << " not exist" << std::endl;
+        return std::vector<std::shared_ptr<Metadata>>();
     }
-    ifs.seekg(0, ios::beg);
+    ifs.seekg(0, std::ios::beg);
     std::streampos fsize = 0;
     fsize = ifs.tellg();
-    ifs.seekg(0, ios::end);
+    ifs.seekg(0, std::ios::end);
     fsize = ifs.tellg() - fsize;
-    ifs.seekg(0, ios::beg);
+    ifs.seekg(0, std::ios::beg);
     Reader reader(ifs, fsize);
-    vector<shared_ptr<Metadata>> metadata = LoadMetadata(reader);
+    auto metadata = LoadMetadata(reader);
     ifs.close();
     return metadata;
 }
 
-auto File::ReadFileWithoutClose(string m_fileName) -> vector<shared_ptr<Segment>> {
+auto File::ReadFileWithoutClose(std::string m_fileName) -> std::vector<std::shared_ptr<Segment>> {
     if (m_read_fs.is_open())
         m_read_fs.close();
-    if (m_reader)
-        delete m_reader;
+    // Reset before opening: the failure path below used to return with the old
+    // Reader already deleted but still pointed at.
+    m_reader.reset();
+    m_read_fs.clear();
     m_prevMetaDataLookup.clear();
-    m_read_fs.open(m_fileName, ios::binary | std::ifstream::in);
+    m_read_fs.open(m_fileName, std::ios::binary | std::ifstream::in);
     if (m_read_fs.fail()) {
-        cout << "File " << m_fileName << " not exist" << std::endl;
-        return vector<shared_ptr<Segment>>();
+        std::cout << "File " << m_fileName << " not exist" << std::endl;
+        return std::vector<std::shared_ptr<Segment>>();
     }
 
-    m_read_fs.seekg(0, ios::beg);
+    m_read_fs.seekg(0, std::ios::beg);
     std::streampos fsize = 0;
     fsize = m_read_fs.tellg();
-    m_read_fs.seekg(0, ios::end);
+    m_read_fs.seekg(0, std::ios::end);
     fsize = m_read_fs.tellg() - fsize;
-    m_read_fs.seekg(0, ios::beg);
-    m_reader = new Reader(m_read_fs, fsize, false);
+    m_read_fs.seekg(0, std::ios::beg);
+    m_reader = std::make_unique<Reader>(m_read_fs, static_cast<std::uint64_t>(fsize), false);
     return GetSegments(*m_reader);
 }
 
-auto File::GetMetadata(shared_ptr<Segment> segment) -> vector<shared_ptr<Metadata>> {
+auto File::GetMetadata(std::shared_ptr<Segment> segment) -> std::vector<std::shared_ptr<Metadata>> {
+    // m_reader is null before ReadFileWithoutClose, after Close, and when the
+    // caller used ReadFile (which builds a local Reader); all three used to be a
+    // null dereference here.
+    if (m_reader == nullptr || segment == nullptr)
+        return std::vector<std::shared_ptr<Metadata>>();
     return GetMetadataItem(*m_reader, segment, m_prevMetaDataLookup);
 }
 
 auto File::Close() -> bool {
     m_prevMetaDataLookup.clear();
-    if (m_reader) {
-        delete m_reader;
-    }
+    m_reader.reset();
     if (m_read_fs.is_open()) {
         m_read_fs.close();
         return true;
@@ -97,13 +104,13 @@ auto File::Close() -> bool {
     return false;
 }
 
-auto File::WriteFile(string m_fileName, WriterSegment& segment, bool Append) -> void {
+auto File::WriteFile(std::string m_fileName, WriterSegment& segment, bool Append) -> void {
     std::fstream ifs;
-    ifs.open(m_fileName, ios::binary | std::ofstream::out | std::ofstream::in | (Append ? std::ofstream::binary : std::ofstream::trunc));
+    ifs.open(m_fileName, std::ios::binary | std::ofstream::out | std::ofstream::in | (Append ? std::ofstream::binary : std::ofstream::trunc));
     if (ifs.fail()) {
-        ifs.open(m_fileName, ios::binary | std::ofstream::out | std::ofstream::in | std::ofstream::trunc);
+        ifs.open(m_fileName, std::ios::binary | std::ofstream::out | std::ofstream::in | std::ofstream::trunc);
         if (ifs.fail()) {
-            cout << "File " << m_fileName << " not exist" << std::endl;
+            std::cout << "File " << m_fileName << " not exist" << std::endl;
             return;
         }
     }
@@ -117,10 +124,10 @@ auto File::WriteMemory(std::iostream& stream, WriterSegment& segment) -> void {
     writer.Write(segment);
 }
 
-auto File::LoadMetadata(Reader& reader) -> vector<shared_ptr<Metadata>> {
-    vector<shared_ptr<Segment>> segments = GetSegments(reader);
-    vector<shared_ptr<Metadata>> metadataRet;
-    map<string, map<string, shared_ptr<Metadata>>> prevMetaDataLookup;
+auto File::LoadMetadata(Reader& reader) -> std::vector<std::shared_ptr<Metadata>> {
+    std::vector<std::shared_ptr<Segment>> segments = GetSegments(reader);
+    std::vector<std::shared_ptr<Metadata>> metadataRet;
+    std::map<std::string, std::map<std::string, std::shared_ptr<Metadata>>> prevMetaDataLookup;
     for (auto& segment : segments) {
         if (!(segment->TableOfContents.ContainsNewObjects || segment->TableOfContents.HasDaqMxData || segment->TableOfContents.HasMetaData ||
               segment->TableOfContents.HasRawData)) {
@@ -132,18 +139,18 @@ auto File::LoadMetadata(Reader& reader) -> vector<shared_ptr<Metadata>> {
     return metadataRet;
 }
 
-auto File::GetMetadataItem(Reader& reader, shared_ptr<Segment> segment,
-                           map<string, map<string, shared_ptr<Metadata>>>& prevMetaDataLookup) -> vector<shared_ptr<Metadata>> {
-    vector<shared_ptr<Metadata>> metadataRet;
-    vector<shared_ptr<Metadata>> metadatas = reader.ReadMetadata(segment);
-    long rawDataSize = 0;
-    long nextOffset = segment->RawDataOffset;
+auto File::GetMetadataItem(Reader& reader, std::shared_ptr<Segment> segment,
+                           std::map<std::string, std::map<std::string, std::shared_ptr<Metadata>>>& prevMetaDataLookup) -> std::vector<std::shared_ptr<Metadata>> {
+    std::vector<std::shared_ptr<Metadata>> metadataRet;
+    std::vector<std::shared_ptr<Metadata>> metadatas = reader.ReadMetadata(segment);
+    std::int64_t rawDataSize = 0;
+    std::int64_t nextOffset = segment->RawDataOffset;
     for (auto& metadata : metadatas) {
         if (metadata->RawData.Count == 0 && metadata->Path.size() > 1) {
             // apply previous metadata if available
             auto prevMetadataPair = prevMetaDataLookup.find(metadata->Path[0]);
             if (prevMetadataPair != prevMetaDataLookup.end()) {
-                map<string, shared_ptr<Metadata>> prevMetadataMap = prevMetadataPair->second;
+                auto prevMetadataMap = prevMetadataPair->second;
                 auto prevMetaDataPair2 = prevMetadataMap.find(metadata->Path[1]);
                 if (prevMetaDataPair2 != prevMetadataMap.end()) {
                     auto prevMetaData = prevMetaDataPair2->second;
@@ -159,52 +166,77 @@ auto File::GetMetadataItem(Reader& reader, shared_ptr<Segment> segment,
             }
         }
         if (metadata->RawData.IsInterleaved && segment->NextSegmentOffset <= 0) {
-            metadata->RawData.Count =
-                segment->NextSegmentOffset > 0
-                    ? (segment->NextSegmentOffset - metadata->RawData.Offset + metadata->RawData.InterleaveStride - 1) / metadata->RawData.InterleaveStride
-                    : (reader.GetFileSize() - metadata->RawData.Offset + metadata->RawData.InterleaveStride - 1) / metadata->RawData.InterleaveStride;
+            metadata->RawData.Count = segment->NextSegmentOffset > 0
+                                          ? (segment->NextSegmentOffset - metadata->RawData.Offset + metadata->RawData.InterleaveStride - 1) / metadata->RawData.InterleaveStride
+                                          : (reader.GetFileSize() - metadata->RawData.Offset + metadata->RawData.InterleaveStride - 1) / metadata->RawData.InterleaveStride;
         }
         if (metadata->Path.size() > 1) {
             rawDataSize += metadata->RawData.Size;
             nextOffset += metadata->RawData.Size;
         }
     }
-    vector<shared_ptr<Metadata>> implicitMetadatas;
-    bool Check = true;
+    std::vector<std::shared_ptr<Metadata>> implicitMetadatas;
+    // NOTE: this predicate looks at EVERY object, including a group (which never
+    // has raw data), so an ordinary group+channel segment produces no implicit
+    // records. That is the current behaviour and it is preserved deliberately;
+    // restricting the predicate to channel objects is spec-correct but changes
+    // what ReadFile returns for ordinary files.
+    bool Check = !metadatas.empty();
     for (auto& metadata : metadatas) {
         if (!(!metadata->RawData.IsInterleaved && metadata->RawData.Size > 0))
             Check = false;
     }
     if (Check && segment->TableOfContents.HasRawData) {
-        while (nextOffset < segment->NextSegmentOffset || (segment->NextSegmentOffset == -1 && nextOffset < (long)reader.GetFileSize())) {
-            // Incremental Meta Data see http://www.ni.com/white-paper/5696/en/#toc1
-            for (auto& metadata : metadatas) {
-                if (metadata->Path.size() > 1) {
-                    shared_ptr<Metadata> implicitMetadata;
-                    implicitMetadata->Path = metadata->Path;
-                    implicitMetadata->RawData.Count = metadata->RawData.Count;
-                    implicitMetadata->RawData.DataType = metadata->RawData.DataType;
-                    implicitMetadata->RawData.Offset = nextOffset;
-                    implicitMetadata->RawData.IsInterleaved = metadata->RawData.IsInterleaved;
-                    implicitMetadata->RawData.Size = metadata->RawData.Size;
-                    implicitMetadata->RawData.Dimension = metadata->RawData.Dimension;
-                    implicitMetadata->Properties = metadata->Properties;
-                    implicitMetadatas.push_back(implicitMetadata);
-                    nextOffset += implicitMetadata->RawData.Size;
+        // Bytes one full chunk of every channel consumes. If this is zero the
+        // loop below cannot advance, which is how a segment with no channels - or
+        // with zero-sample channels - used to spin forever.
+        std::int64_t chunkSize = 0;
+        for (auto& metadata : metadatas) {
+            if (metadata->Path.size() > 1)
+                chunkSize += metadata->RawData.Size;
+        }
+        const std::int64_t rawEnd = segment->NextSegmentOffset > 0 ? segment->NextSegmentOffset : static_cast<std::int64_t>(reader.GetFileSize());
+        if (chunkSize > 0) {
+            while (nextOffset + chunkSize <= rawEnd) {
+                // Incremental Meta Data see http://www.ni.com/white-paper/5696/en/#toc1
+                for (auto& metadata : metadatas) {
+                    if (metadata->Path.size() > 1) {
+                        // make_shared, not a default-constructed shared_ptr: the
+                        // original created a NULL pointer here and dereferenced
+                        // it on the next line, so reaching this branch was a
+                        // guaranteed segfault.
+                        auto implicitMetadata = std::make_shared<Metadata>();
+                        implicitMetadata->Path = metadata->Path;
+                        // These four were dropped entirely, which left every
+                        // implicit record with an empty path when printed.
+                        implicitMetadata->PathStr = metadata->PathStr;
+                        implicitMetadata->TableOfContents = metadata->TableOfContents;
+                        implicitMetadata->Version = metadata->Version;
+                        implicitMetadata->RawData.InterleaveStride = metadata->RawData.InterleaveStride;
+                        implicitMetadata->RawData.Count = metadata->RawData.Count;
+                        implicitMetadata->RawData.DataType = metadata->RawData.DataType;
+                        implicitMetadata->RawData.Offset = nextOffset;
+                        implicitMetadata->RawData.IsInterleaved = metadata->RawData.IsInterleaved;
+                        implicitMetadata->RawData.Size = metadata->RawData.Size;
+                        implicitMetadata->RawData.Dimension = metadata->RawData.Dimension;
+                        implicitMetadata->Properties = metadata->Properties;
+                        implicitMetadatas.push_back(implicitMetadata);
+                        nextOffset += implicitMetadata->RawData.Size;
+                    }
                 }
             }
         }
     }
 
-    vector<shared_ptr<Metadata>> metadataWithImplicit;
+    std::vector<std::shared_ptr<Metadata>> metadataWithImplicit;
 
     metadataWithImplicit.insert(std::end(metadataWithImplicit), std::begin(metadatas), std::end(metadatas));
     metadataWithImplicit.insert(std::end(metadataWithImplicit), std::begin(implicitMetadatas), std::end(implicitMetadatas));
 
     for (auto& metadata : metadataWithImplicit) {
         if (metadata->Path.size() == 2) {
-            if (!key_exists<map<string, map<string, shared_ptr<Metadata>>>, string>(prevMetaDataLookup, metadata->Path[0])) {
-                auto pair_data = std::pair<string, map<string, shared_ptr<Metadata>>>(metadata->Path[0], map<string, shared_ptr<Metadata>>());
+            if (!key_exists<std::map<std::string, std::map<std::string, std::shared_ptr<Metadata>>>, std::string>(prevMetaDataLookup, metadata->Path[0])) {
+                auto pair_data = std::pair<std::string, std::map<std::string, std::shared_ptr<Metadata>>>(metadata->Path[0], std::map<std::string, std::shared_ptr<Metadata>>());
                 prevMetaDataLookup.insert(pair_data);
             }
             prevMetaDataLookup[metadata->Path[0]][metadata->Path[1]] = metadata;
@@ -214,12 +246,18 @@ auto File::GetMetadataItem(Reader& reader, shared_ptr<Segment> segment,
     return metadataRet;
 }
 
-vector<shared_ptr<Segment>> File::GetSegments(Reader& reader) {
-    vector<shared_ptr<Segment>> list;
-    shared_ptr<Segment> segment = reader.ReadFirstSegment();
+std::vector<std::shared_ptr<Segment>> File::GetSegments(Reader& reader) {
+    std::vector<std::shared_ptr<Segment>> list;
+    auto segment = reader.ReadFirstSegment();
     while (segment != nullptr) {
         list.push_back(segment);
-        segment = reader.ReadSegment(segment->NextSegmentOffset);
+        const std::int64_t next = segment->NextSegmentOffset;
+        // The offset must move forward. It came from the file, so a malformed or
+        // hostile one could point at this segment or before it, and this loop had
+        // no requirement that it advance at all.
+        if (next <= segment->Offset)
+            break;
+        segment = reader.ReadSegment(static_cast<std::uint64_t>(next));
     }
     return list;
 }

@@ -6,16 +6,28 @@
 
 using namespace DataLib;
 
+auto CBuffersCached::resetSemaphores() -> void {
+    sem_destroy(&m_countsem);
+    sem_destroy(&m_spacesem);
+    sem_init(&m_countsem, 0, 0);
+    sem_init(&m_spacesem, 0, m_ringSize);
+}
+
 auto CBuffersCached::create() -> CBuffersCached::Ptr {
     return std::make_shared<CBuffersCached>();
 }
 
-CBuffersCached::CBuffersCached() : m_buffers(), m_needDestroy(false), m_dataSize(0) {}
+CBuffersCached::CBuffersCached() : m_buffers(), m_needDestroy(false), m_dataSize(0) {
+    sem_init(&m_countsem, 0, 0);
+    sem_init(&m_spacesem, 0, 0);
+}
 
 CBuffersCached::~CBuffersCached() {
     std::lock_guard lock(m_mtx);
     notifyToDestory();
     m_buffers.clear();
+    sem_destroy(&m_countsem);
+    sem_destroy(&m_spacesem);
     TRACE("Exit")
 }
 
@@ -58,8 +70,7 @@ auto CBuffersCached::generateBuffers(std::vector<uio_lib::MemoryRegionT> blocks,
         m_buffers.push_back(pack);
     }
     profiler::printuS("initBuffer", "Init buffer. Test mode %d", testMode);
-    sem_init(&m_countsem, 0, 0);
-    sem_init(&m_spacesem, 0, m_ringSize);
+    resetSemaphores();
 }
 
 constexpr auto toPackChannel = [](auto ch) -> EDataBuffersPackChannel {
@@ -131,8 +142,7 @@ auto CBuffersCached::generateBuffersEmpty(ChannelsType channels, std::vector<uio
     }
 
     profiler::printuS("initBuffer", "Init buffer.");
-    sem_init(&m_countsem, 0, 0);
-    sem_init(&m_spacesem, 0, m_ringSize);
+    resetSemaphores();
 }
 
 auto CBuffersCached::generateBuffersEmptyDAC(dac_channels_t channels, std::vector<uio_lib::MemoryRegionT> blocks, size_t headerSize) -> void {
@@ -188,7 +198,11 @@ auto CBuffersCached::isEmpty() -> bool {
 }
 
 inline auto CBuffersCached::getFreeSize() -> uint32_t {
-    return m_ringSize - (m_ringEnd < m_ringStart ? ((m_ringEnd + m_ringSize) - m_ringStart) : (m_ringEnd - m_ringSize));
+    if (m_ringSize == 0) {
+        return 0;
+    }
+    const uint32_t used = (m_ringEnd - m_ringStart + m_ringSize) % m_ringSize;
+    return m_ringSize - used;
 }
 
 auto CBuffersCached::fullPercent() -> float {

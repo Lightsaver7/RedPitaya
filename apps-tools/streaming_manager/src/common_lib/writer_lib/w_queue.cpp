@@ -14,6 +14,8 @@ auto Queue::pushQueue(std::iostream* buffer) -> void {
 
 auto Queue::popQueue() -> std::iostream* {
     const std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_queue.empty())
+        return nullptr;
     std::iostream* buffer = m_queue.front();
     if (buffer != nullptr) {
         m_queue.pop_front();

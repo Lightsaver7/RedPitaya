@@ -4,8 +4,6 @@
 #include <stdint.h>
 #include <fstream>
 
-using namespace std;
-
 class CWaveReader {
     typedef struct WavHeader {
         uint8_t RIFF[4];         // RIFF Header Magic header
@@ -28,7 +26,7 @@ class CWaveReader {
     CWaveReader();
     ~CWaveReader();
 
-    auto openFile(string fileName) -> bool;
+    auto openFile(std::string fileName) -> bool;
     auto getHeader() -> WavHeader_t;
     auto getDataSize() -> uint64_t;
     auto getBuffers(uint8_t** ch1, size_t* size_ch1, uint8_t** ch2, size_t* size_ch2, uint8_t* bits) -> bool;

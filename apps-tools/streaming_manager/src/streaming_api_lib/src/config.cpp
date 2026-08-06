@@ -24,30 +24,30 @@ auto sendConfigCommon(ConfigStreamClient* cl, ClientNetConfigManager::Ptr cl2, s
 
     class LocalCb : public ConfigCallback {
 
-        void configError(ConfigStreamClient* cl, std::string host, int error) override {
+        void configError([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host, [[maybe_unused]] int error) override {
             const std::lock_guard lock(g_smutex);
             if (m_set_counter)
                 (*m_set_counter)--;
         }
 
-        void configSuccessSend(ConfigStreamClient* cl, std::string host) override {
+        void configSuccessSend([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_smutex);
             cl->requestSaveSettings(host);
         }
 
-        void configFailSend(ConfigStreamClient* cl, std::string host) override {
+        void configFailSend([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_smutex);
             if (m_set_counter)
                 (*m_set_counter)--;
         }
 
-        void configSuccessSave(ConfigStreamClient* cl, std::string host) override {
+        void configSuccessSave([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_smutex);
             if (m_set_counter)
                 (*m_set_counter)--;
         }
 
-        void configFailSave(ConfigStreamClient* cl, std::string host) override {
+        void configFailSave([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_smutex);
             if (m_set_counter)
                 (*m_set_counter)--;
@@ -97,13 +97,13 @@ auto getConfigCommon(ConfigStreamClient* cl, ClientNetConfigManager::Ptr cl2, st
 
     class LocalCb : public ConfigCallback {
 
-        void configError(ConfigStreamClient* cl, std::string host, int error) override {
+        void configError([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host, [[maybe_unused]] int error) override {
             const std::lock_guard lock(g_smutex);
             *m_noError = false;
             (*m_get_counter)--;
         }
 
-        void configGetNewSettingsItem(ConfigStreamClient* cl, std::string host) override {
+        void configGetNewSettingsItem([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_smutex);
             *m_noError = true;
             (*m_get_counter)--;
@@ -158,30 +158,30 @@ auto sendFileConfigCommon(ConfigStreamClient* cl, ClientNetConfigManager::Ptr cl
 
     class LocalCb : public ConfigCallback {
 
-        void configError(ConfigStreamClient* cl, std::string host, int error) override {
+        void configError([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host, [[maybe_unused]] int error) override {
             const std::lock_guard lock(g_smutex);
             if (m_set_counter)
                 (*m_set_counter)--;
         }
 
-        void configSuccessSend(ConfigStreamClient* cl, std::string host) override {
+        void configSuccessSend([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_smutex);
             cl->requestSaveSettings(host);
         }
 
-        void configFailSend(ConfigStreamClient* cl, std::string host) override {
+        void configFailSend([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_smutex);
             if (m_set_counter)
                 (*m_set_counter)--;
         }
 
-        void configSuccessSave(ConfigStreamClient* cl, std::string host) override {
+        void configSuccessSave([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_smutex);
             if (m_set_counter)
                 (*m_set_counter)--;
         }
 
-        void configFailSave(ConfigStreamClient* cl, std::string host) override {
+        void configFailSave([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_smutex);
             if (m_set_counter)
                 (*m_set_counter)--;
@@ -230,13 +230,13 @@ auto getFileConfigCommon(ConfigStreamClient* cl, ClientNetConfigManager::Ptr cl2
 
     class LocalCb : public ConfigCallback {
 
-        void configError(ConfigStreamClient* cl, std::string host, int error) override {
+        void configError([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host, [[maybe_unused]] int error) override {
             const std::lock_guard lock(g_smutex);
             *m_noError = false;
             (*m_get_counter)--;
         }
 
-        void configGetNewSettings(ConfigStreamClient* cl, std::string host) override {
+        void configGetNewSettings([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_smutex);
             *m_noError = true;
             (*m_get_counter)--;

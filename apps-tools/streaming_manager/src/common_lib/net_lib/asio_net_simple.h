@@ -4,8 +4,6 @@
 #include "data_lib/signal.hpp"
 #include "net_lib/asio_common.h"
 
-using namespace std;
-
 namespace net_lib {
 
 class CAsioSocketSimple;
@@ -22,14 +20,14 @@ class CAsioNetSimple {
     auto start() -> void;
     auto disconnect() -> void;
 
-    sigslot::signal<string&> connectNotify;
-    sigslot::signal<string&> disconnectNotify;
+    sigslot::signal<std::string&> connectNotify;
+    sigslot::signal<std::string&> disconnectNotify;
 
-    sigslot::signal<error_code> errorNotify;
-    sigslot::signal<error_code> connectTimeoutNotify;
+    sigslot::signal<std::error_code> errorNotify;
+    sigslot::signal<std::error_code> connectTimeoutNotify;
 
-    sigslot::signal<error_code, size_t> sendNotify;
-    sigslot::signal<error_code, uint8_t*, size_t> recivedNotify;
+    sigslot::signal<std::error_code, size_t> sendNotify;
+    sigslot::signal<std::error_code, uint8_t*, size_t> recivedNotify;
 
     auto sendData(bool async, net_buffer _buffer, size_t _size) -> bool;
     auto isConnected() -> bool;

@@ -59,7 +59,7 @@ auto connectConfigServer(std::shared_ptr<ClientNetConfigManager> cl, ClientOpt::
         connect_counter--;
     });
 
-    cl->errorNofiy.connect([&](ClientNetConfigManager::Errors errors, std::string host, error_code err) {
+    cl->errorNofiy.connect([&](ClientNetConfigManager::Errors errors, std::string host, std::error_code err) {
         const std::lock_guard lock(g_mutex);
         if (errors == ClientNetConfigManager::Errors::SERVER_INTERNAL) {
             aprintf(stderr, "%s Error: %s %s\n", getTS(": ").c_str(), host.c_str(), err.message().c_str());
@@ -123,7 +123,7 @@ auto getConfig(std::shared_ptr<ClientNetConfigManager> cl, ClientOpt::Options& o
         get_counter--;
     });
 
-    cl->errorNofiy.connect([&](ClientNetConfigManager::Errors errors, std::string host, error_code err) {
+    cl->errorNofiy.connect([&](ClientNetConfigManager::Errors errors, std::string host, std::error_code err) {
         const std::lock_guard<std::mutex> lock(g_mutex);
         if (errors == ClientNetConfigManager::Errors::SERVER_INTERNAL) {
             aprintf(stderr, "%s Error: %s %s\n", getTS(": ").c_str(), host.c_str(), err.message().c_str());
@@ -186,7 +186,7 @@ auto getConfigItem(std::shared_ptr<ClientNetConfigManager> cl, ClientOpt::Option
         get_counter--;
     });
 
-    cl->errorNofiy.connect([&](ClientNetConfigManager::Errors errors, std::string host, error_code err) {
+    cl->errorNofiy.connect([&](ClientNetConfigManager::Errors errors, std::string host, std::error_code err) {
         const std::lock_guard<std::mutex> lock(g_mutex);
         if (errors == ClientNetConfigManager::Errors::SERVER_INTERNAL) {
             aprintf(stderr, "%s Error: %s %s\n", getTS(": ").c_str(), host.c_str(), err.message().c_str());
@@ -257,7 +257,7 @@ auto setConfig(std::shared_ptr<ClientNetConfigManager> cl, ClientOpt::Options& o
         set_counter--;
     });
 
-    cl->errorNofiy.connect([&](ClientNetConfigManager::Errors errors, std::string host, error_code err) {
+    cl->errorNofiy.connect([&](ClientNetConfigManager::Errors errors, std::string host, std::error_code err) {
         const std::lock_guard<std::mutex> lock(g_mutex);
         if (errors == ClientNetConfigManager::Errors::SERVER_INTERNAL) {
             aprintf(stderr, "%s Error: %s %s\n", getTS(": ").c_str(), host.c_str(), err.message().c_str());
@@ -337,7 +337,7 @@ auto setConfigItem(std::shared_ptr<ClientNetConfigManager> cl, ClientOpt::Option
         set_counter--;
     });
 
-    cl->errorNofiy.connect([&](ClientNetConfigManager::Errors errors, std::string host, error_code err) {
+    cl->errorNofiy.connect([&](ClientNetConfigManager::Errors errors, std::string host, std::error_code err) {
         const std::lock_guard<std::mutex> lock(g_mutex);
         if (errors == ClientNetConfigManager::Errors::SERVER_INTERNAL) {
             aprintf(stderr, "%s Error: %s %s\n", getTS(": ").c_str(), host.c_str(), err.message().c_str());

@@ -87,28 +87,28 @@ class CDataBufferDMA final {
     CDataBufferDMA& operator=(const CDataBufferDMA&) = delete;
     CDataBufferDMA& operator=(const CDataBufferDMA&&) = delete;
 
-    uint32_t m_bufferAddress;
-    uint32_t m_headerAddress;
-    uint32_t m_dataAddress;
-    size_t m_lenght;
-    size_t m_headerLenght;
-    uint8_t m_bitBySample;  // Resolution 8/16/32 bits
-    void* m_mappedMemory;
-    void* m_mappedDataMemory;
-    bool m_needDelete;
-    ADC_MODE m_adcMode;
+    uint32_t m_bufferAddress = 0;
+    uint32_t m_headerAddress = 0;
+    uint32_t m_dataAddress = 0;
+    size_t m_lenght = 0;
+    size_t m_headerLenght = 0;
+    uint8_t m_bitBySample = 0;  // Resolution 8/16/32 bits
+    void* m_mappedMemory = nullptr;
+    void* m_mappedDataMemory = nullptr;
+    bool m_needDelete = false;
+    ADC_MODE m_adcMode = ATT_1_1;
     std::map<EDataLost, uint64_t> m_lost;
-    uint32_t m_writeSize;
-    uint8_t m_baseADCBits;
-    uint64_t m_baseADCRate;
-    uint64_t m_packId;
+    uint32_t m_writeSize = 0;
+    uint8_t m_baseADCBits = 0;
+    uint64_t m_baseADCRate = 0;
+    uint64_t m_packId = 0;
 
-    bool m_onePackModeDAC;
-    bool m_infModeDAC;
-    int64_t m_repeatCountDAC;
-    uint32_t m_channelSizeDAC;
-    uint8_t m_dacBits;
-    int64_t m_timeCapture;
+    bool m_onePackModeDAC = false;
+    bool m_infModeDAC = false;
+    int64_t m_repeatCountDAC = 0;
+    uint32_t m_channelSizeDAC = 0;
+    uint8_t m_dacBits = 0;
+    int64_t m_timeCapture = 0;
 };
 
 }  // namespace DataLib

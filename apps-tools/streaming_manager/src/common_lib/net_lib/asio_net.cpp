@@ -7,8 +7,7 @@ auto CAsioNet::create(net_lib::EMode _mode, std::string _host, uint16_t _port, D
     return std::make_shared<CAsioNet>(_mode, _host, _port, buffers);
 }
 
-CAsioNet::CAsioNet(net_lib::EMode _mode, std::string _host, uint16_t _port, DataLib::CBuffersCached::Ptr buffers)
-    : m_mode(_mode), m_host(_host), m_port(_port), m_IsRun(false) {
+CAsioNet::CAsioNet(net_lib::EMode _mode, std::string _host, uint16_t _port, DataLib::CBuffersCached::Ptr buffers) : m_mode(_mode), m_host(_host), m_port(_port), m_IsRun(false) {
     m_server = CAsioSocketDMA::create(m_host, m_port, buffers);
 
     m_server->connectClientNotify.connect([&](auto& host) { this->clientConnectNotify(host); });
