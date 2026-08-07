@@ -57,12 +57,12 @@ auto requestMemoryBlockSizeCommon(std::shared_ptr<ConfigStreamClient> cl, const 
 
     class LocalCb : public ConfigCallback {
 
-        void configError(ConfigStreamClient* cl, std::string host, int error) override {
+        void configError([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host, [[maybe_unused]] int error) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*rstart_counter)--;
         }
 
-        void configMemoryBlockSize(ConfigStreamClient* cl, std::string host, size_t size) override {
+        void configMemoryBlockSize([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host, [[maybe_unused]] size_t size) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*rstart_counter)--;
             if (sizes)
@@ -97,45 +97,37 @@ auto requestMemoryBlockSizeCommon(std::shared_ptr<ConfigStreamClient> cl, const 
     return !timeout;
 }
 
-auto requestActiveChannelsCommon(std::shared_ptr<ConfigStreamClient> cl,
-								 const std::list<std::string> &hosts,
-								 std::map<std::string, adc_channels_t> *channels,
-								 bool verbose) -> bool
-{
-	std::atomic<int> rstart_counter;
+auto requestActiveChannelsCommon(std::shared_ptr<ConfigStreamClient> cl, const std::list<std::string>& hosts, std::map<std::string, adc_channels_t>* channels,
+                                 bool verbose) -> bool {
+    std::atomic<int> rstart_counter;
 
-	class LocalCb : public ConfigCallback
-	{
-		void configError(ConfigStreamClient *cl, std::string host, int error) override
-		{
-			const std::lock_guard<std::mutex> lock(g_rmutex);
-			(*rstart_counter)--;
-		}
+    class LocalCb : public ConfigCallback {
+        void configError([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host, [[maybe_unused]] int error) override {
+            const std::lock_guard<std::mutex> lock(g_rmutex);
+            (*rstart_counter)--;
+        }
 
-		void configActiveChannels(ConfigStreamClient *cl, std::string host, std::array<bool, 4> ch) override
-		{
-			const std::lock_guard<std::mutex> lock(g_rmutex);
-			(*rstart_counter)--;
-			if (channels) {
-				(*channels)[host][ADCChannels::ADC_CH1] = ch[0];
-				(*channels)[host][ADCChannels::ADC_CH2] = ch[1];
-				(*channels)[host][ADCChannels::ADC_CH3] = ch[2];
-				(*channels)[host][ADCChannels::ADC_CH4] = ch[3];
-			}
-		}
+        void configActiveChannels([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host, [[maybe_unused]] std::array<bool, 4> ch) override {
+            const std::lock_guard<std::mutex> lock(g_rmutex);
+            (*rstart_counter)--;
+            if (channels) {
+                (*channels)[host][ADCChannels::ADC_CH1] = ch[0];
+                (*channels)[host][ADCChannels::ADC_CH2] = ch[1];
+                (*channels)[host][ADCChannels::ADC_CH3] = ch[2];
+                (*channels)[host][ADCChannels::ADC_CH4] = ch[3];
+            }
+        }
 
-		std::atomic<int> *rstart_counter = nullptr;
-		std::map<std::string, adc_channels_t> *channels = nullptr;
+        std::atomic<int>* rstart_counter = nullptr;
+        std::map<std::string, adc_channels_t>* channels = nullptr;
 
-	public:
-		explicit LocalCb(std::atomic<int> *counter, std::map<std::string, adc_channels_t> *channels_ref)
-			: rstart_counter(counter)
-			, channels(channels_ref){};
-	};
-	auto cb = std::make_shared<LocalCb>(&rstart_counter, channels);
-	cl->addCallback(cb);
+       public:
+        explicit LocalCb(std::atomic<int>* counter, std::map<std::string, adc_channels_t>* channels_ref) : rstart_counter(counter), channels(channels_ref){};
+    };
+    auto cb = std::make_shared<LocalCb>(&rstart_counter, channels);
+    cl->addCallback(cb);
 
-	rstart_counter = hosts.size();
+    rstart_counter = hosts.size();
     for (auto& host : hosts) {
         if (verbose)
             aprintf(stdout, "%s Request for active channels sent : %s\n", getTS(": ").c_str(), host.c_str());
@@ -160,49 +152,49 @@ auto requestStartStreamingCommon(std::shared_ptr<ConfigStreamClient> cl, std::li
 
     class LocalCb : public ConfigCallback {
 
-        void configError(ConfigStreamClient* cl, std::string host, int error) override {
+        void configError([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host, [[maybe_unused]] int error) override {
             const std::lock_guard lock(g_rmutex);
             (*m_rstart_counter)--;
             m_masterHosts->remove(host);
             m_slaveHosts->remove(host);
         }
 
-        void configErrorFileMissed(ConfigStreamClient* cl, std::string host) override {
+        void configErrorFileMissed([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*m_rstart_counter)--;
             m_masterHosts->remove(host);
             m_slaveHosts->remove(host);
         }
 
-        void adcServerStoppedMemError(ConfigStreamClient* cl, std::string host) override {
+        void adcServerStoppedMemError([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*m_rstart_counter)--;
             m_masterHosts->remove(host);
             m_slaveHosts->remove(host);
         }
 
-        void adcServerStoppedNoActiveChannels(ConfigStreamClient* cl, std::string host) override {
+        void adcServerStoppedNoActiveChannels([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*m_rstart_counter)--;
             m_masterHosts->remove(host);
             m_slaveHosts->remove(host);
         }
 
-        void adcServerStoppedMemModify(ConfigStreamClient* cl, std::string host) override {
+        void adcServerStoppedMemModify([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*m_rstart_counter)--;
             m_masterHosts->remove(host);
             m_slaveHosts->remove(host);
         }
 
-        void adcServerStartedTCP(ConfigStreamClient* cl, std::string host) override {
+        void adcServerStartedTCP([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*m_rstart_counter)--;
             if (m_runned_hosts)
                 (*m_runned_hosts)[host] = StateRunningHosts::TCP;
         }
 
-        void adcServerStartedSD(ConfigStreamClient* cl, std::string host) override {
+        void adcServerStartedSD([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*m_rstart_counter)--;
             if (m_runned_hosts)
@@ -267,28 +259,28 @@ auto requestStopStreamingCommon(std::shared_ptr<ConfigStreamClient> cl, std::lis
 
     class LocalCb : public ConfigCallback {
 
-        void configError(ConfigStreamClient* cl, std::string host, int error) override {
+        void configError([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host, int error) override {
             const std::lock_guard lock(g_rmutex);
             (*m_rstop_counter)--;
             m_masterHosts->remove(host);
             m_slaveHosts->remove(host);
         }
 
-        void adcServerStopped(ConfigStreamClient* cl, std::string host) override {
+        void adcServerStopped([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*m_rstop_counter)--;
             m_masterHosts->remove(host);
             m_slaveHosts->remove(host);
         }
 
-        void adcServerStoppedSDFull(ConfigStreamClient* cl, std::string host) override {
+        void adcServerStoppedSDFull([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*m_rstop_counter)--;
             m_masterHosts->remove(host);
             m_slaveHosts->remove(host);
         }
 
-        void adcServerStoppedSDDone(ConfigStreamClient* cl, std::string host) override {
+        void adcServerStoppedSDDone([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*m_rstop_counter)--;
             m_masterHosts->remove(host);
@@ -353,28 +345,28 @@ auto requestStartADCCommon(std::shared_ptr<ConfigStreamClient> cl, std::list<std
 
     class LocalCb : public ConfigCallback {
 
-        void configError(ConfigStreamClient* cl, std::string host, int error) override {
+        void configError([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host, [[maybe_unused]] int error) override {
             const std::lock_guard lock(g_rmutex);
             (*m_rstart_counter)--;
             m_masterHosts->remove(host);
             m_slaveHosts->remove(host);
         }
 
-        void adcServerStoppedMemError(ConfigStreamClient* cl, std::string host) override {
+        void adcServerStoppedMemError([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*m_rstart_counter)--;
             m_masterHosts->remove(host);
             m_slaveHosts->remove(host);
         }
 
-        void adcServerStoppedMemModify(ConfigStreamClient* cl, std::string host) override {
+        void adcServerStoppedMemModify([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*m_rstart_counter)--;
             m_masterHosts->remove(host);
             m_slaveHosts->remove(host);
         }
 
-        void adcServerStartedFPGA(ConfigStreamClient* cl, std::string host) override {
+        void adcServerStartedFPGA([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*m_rstart_counter)--;
             if (m_runned_hosts)
@@ -434,49 +426,43 @@ auto requestStartADCCommon(std::shared_ptr<ConfigStreamClient> cl, std::list<std
     return !timeout;
 }
 
-auto requestStartDACStreamingCommon(
-	std::shared_ptr<ConfigStreamClient> cl, std::string host, dac_channels_t ac, StateRunningHosts *runned_host, bool verbose) -> bool
-{
-	std::atomic<int> rstart_counter;
+auto requestStartDACStreamingCommon(std::shared_ptr<ConfigStreamClient> cl, std::string host, dac_channels_t ac, StateRunningHosts* runned_host, bool verbose) -> bool {
+    std::atomic<int> rstart_counter;
 
-	class LocalCb : public ConfigCallback
-	{
-		void configError(ConfigStreamClient *cl, std::string host, int error) override
-		{
-			const std::lock_guard lock(g_rmutex);
-			(*m_rstart_counter)--;
-		}
-
-		void dacServerStoppedMemError(ConfigStreamClient *cl, std::string host) override
-		{
-			const std::lock_guard<std::mutex> lock(g_rmutex);
-			(*m_rstart_counter)--;
-		}
-
-		void dacServerStoppedMemModify(ConfigStreamClient *cl, std::string host) override
-		{
-			const std::lock_guard<std::mutex> lock(g_rmutex);
+    class LocalCb : public ConfigCallback {
+        void configError([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host, [[maybe_unused]] int error) override {
+            const std::lock_guard lock(g_rmutex);
             (*m_rstart_counter)--;
-		}
+        }
 
-		void dacServerStoppedConfigError(ConfigStreamClient* cl, std::string host) override {
+        void dacServerStoppedMemError([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*m_rstart_counter)--;
         }
 
-        void configErrorFileMissed(ConfigStreamClient* cl, std::string host) override {
+        void dacServerStoppedMemModify([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*m_rstart_counter)--;
         }
 
-        void dacServerStartedTCP(ConfigStreamClient* cl, std::string host) override {
+        void dacServerStoppedConfigError([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
+            const std::lock_guard<std::mutex> lock(g_rmutex);
+            (*m_rstart_counter)--;
+        }
+
+        void configErrorFileMissed([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
+            const std::lock_guard<std::mutex> lock(g_rmutex);
+            (*m_rstart_counter)--;
+        }
+
+        void dacServerStartedTCP([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*m_rstart_counter)--;
             if (m_runned_hosts)
                 (*m_runned_hosts) = StateRunningHosts::TCP;
         }
 
-        void dacServerStartedSD(ConfigStreamClient* cl, std::string host) override {
+        void dacServerStartedSD([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host) override {
             const std::lock_guard<std::mutex> lock(g_rmutex);
             (*m_rstart_counter)--;
             if (m_runned_hosts)
@@ -488,24 +474,24 @@ auto requestStartDACStreamingCommon(
 
        public:
         explicit LocalCb(std::atomic<int>* counter, StateRunningHosts* runned_hosts) : m_rstart_counter(counter), m_runned_hosts(runned_hosts){};
-	};
-	auto cb = std::make_shared<LocalCb>(&rstart_counter, runned_host);
-	cl->addCallback(cb);
+    };
+    auto cb = std::make_shared<LocalCb>(&rstart_counter, runned_host);
+    cl->addCallback(cb);
 
-	rstart_counter = 1;
-	if (verbose) {
-		aprintf(stdout, "%s Send start command to master board: %s\n", getTS(": ").c_str(), host.c_str());
-	}
-	if (!cl->requestDACServerStart(host, ac.isEnabled(DACChannels::DAC_CH1), ac.isEnabled(DACChannels::DAC_CH2))) {
-		rstart_counter--;
-	}
-	auto beginTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()).time_since_epoch().count();
-	auto timeout = false;
-	while (!timeout && rstart_counter > 0) {
-		sleepMs(100);
-		timeout = (std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()).time_since_epoch().count() - beginTime > 5000);
-	}
+    rstart_counter = 1;
+    if (verbose) {
+        aprintf(stdout, "%s Send start command to master board: %s\n", getTS(": ").c_str(), host.c_str());
+    }
+    if (!cl->requestDACServerStart(host, ac.isEnabled(DACChannels::DAC_CH1), ac.isEnabled(DACChannels::DAC_CH2))) {
+        rstart_counter--;
+    }
+    auto beginTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()).time_since_epoch().count();
+    auto timeout = false;
+    while (!timeout && rstart_counter > 0) {
+        sleepMs(100);
+        timeout = (std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()).time_since_epoch().count() - beginTime > 5000);
+    }
 
-	cl->removeCallback(cb);
+    cl->removeCallback(cb);
     return !timeout;
 }

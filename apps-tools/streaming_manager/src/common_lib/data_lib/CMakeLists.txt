@@ -25,6 +25,13 @@ message(STATUS "Compiler C++ is part: ${CMAKE_COMPILER_IS_GNUCXX}")
 
 message(STATUS "Build ${PROJECT_NAME} unit tests (GoogleTest): ${BUILD_UNIT_TESTS}")
 
+message(STATUS "Host system name=${CMAKE_HOST_SYSTEM_NAME}")
+message(STATUS "Host system processor=${CMAKE_HOST_SYSTEM_PROCESSOR}")
+
+message(STATUS "Target system name=${CMAKE_SYSTEM_NAME}")
+message(STATUS "Target system processor=${CMAKE_SYSTEM_PROCESSOR}")
+message(STATUS "Cross compiling=${CMAKE_CROSSCOMPILING}")
+
 FILE(GLOB_RECURSE INC_ALL "*.h")
 
 FILE(GLOB_RECURSE INC_ALL2 "*.hpp")
@@ -65,16 +72,18 @@ if(DATA_ENABLE_SANITIZERS)
     target_link_options(${PROJECT_NAME} PUBLIC ${_data_sanitizer_flags})
 endif()
 
-if(BUILD_UNIT_TESTS)
-    enable_testing()
-    add_subdirectory(tests)
+if (NOT CMAKE_CROSSCOMPILING)
+    if(BUILD_UNIT_TESTS)
+        enable_testing()
+        add_subdirectory(tests)
 
-    add_custom_target(rp_data_lib_run_tests ALL
-        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-        COMMENT "Running data_lib unit tests (ctest) - the build fails if any test fails"
-        VERBATIM)
-    add_dependencies(rp_data_lib_run_tests data_lib_tests)
+        add_custom_target(rp_data_lib_run_tests ALL
+            COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+            COMMENT "Running data_lib unit tests (ctest) - the build fails if any test fails"
+            VERBATIM)
+        add_dependencies(rp_data_lib_run_tests data_lib_tests)
+    endif()
 endif()
 
 
