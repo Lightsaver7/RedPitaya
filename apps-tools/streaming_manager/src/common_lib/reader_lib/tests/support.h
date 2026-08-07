@@ -15,18 +15,34 @@
 #include <string>
 #include <system_error>
 #include <vector>
+#if defined(_WIN32)
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "reader_lib/reader_controller.h"
 #include "tdms_lib/file.h"
 
 namespace reader_test {
 
+// getpid() is POSIX and absent from the MinGW runtime, which builds this tree
+// for Windows; _getpid() in <process.h> is the equivalent there. The id only has
+// to make the scratch directory unique between concurrent runs of the binary.
+inline auto CurrentProcessId() -> long {
+#if defined(_WIN32)
+    return static_cast<long>(_getpid());
+#else
+    return static_cast<long>(::getpid());
+#endif
+}
+
 // A uniquely named file removed on destruction.
 class TempFile {
    public:
     explicit TempFile(const std::string& name) {
         static int counter = 0;
-        m_dir = std::filesystem::temp_directory_path() / ("reader_test_" + std::to_string(++counter) + "_" + std::to_string(::getpid()));
+        m_dir = std::filesystem::temp_directory_path() / ("reader_test_" + std::to_string(++counter) + "_" + std::to_string(CurrentProcessId()));
         std::filesystem::create_directories(m_dir);
         m_path = (m_dir / name).string();
     }

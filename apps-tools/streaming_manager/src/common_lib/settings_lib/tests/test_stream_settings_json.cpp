@@ -15,10 +15,26 @@
 #include <fstream>
 #include <string>
 #include <system_error>
+#if defined(_WIN32)
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "settings_lib/stream_settings.h"
 
 namespace {
+
+// getpid() is POSIX and absent from the MinGW runtime, which builds this tree
+// for Windows; _getpid() in <process.h> is the equivalent there. The id only has
+// to make the scratch directory unique between concurrent runs of the binary.
+inline auto CurrentProcessId() -> long {
+#if defined(_WIN32)
+    return static_cast<long>(_getpid());
+#else
+    return static_cast<long>(::getpid());
+#endif
+}
 
 using AC_DC = CStreamSettings::AC_DC;
 using ADCCaptureTime = CStreamSettings::ADCCaptureTime;
@@ -69,7 +85,7 @@ class ScratchDir {
     ScratchDir() {
         static int counter = 0;
         m_path = std::filesystem::temp_directory_path() /
-                 ("settings_lib_test_" + std::to_string(++counter) + "_" + std::to_string(static_cast<long>(::getpid())));
+                 ("settings_lib_test_" + std::to_string(++counter) + "_" + std::to_string(CurrentProcessId()));
         std::error_code ec;
         std::filesystem::create_directories(m_path, ec);
     }

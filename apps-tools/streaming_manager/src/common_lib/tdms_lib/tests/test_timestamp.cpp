@@ -13,6 +13,9 @@
 #include <cstdint>
 #include <cstdlib>
 #include <ctime>
+#if defined(_WIN32)
+#include <stdlib.h>
+#endif
 #include <memory>
 #include <string>
 
@@ -27,6 +30,28 @@ namespace {
 constexpr std::int64_t kSecondsFrom1904To1970 = 24107LL * 86400LL;
 static_assert(kSecondsFrom1904To1970 == 2082844800LL);
 
+// setenv/unsetenv/tzset are POSIX and absent from the MinGW runtime, which
+// builds this tree for Windows; _putenv_s/_tzset are the equivalents there. An
+// empty value is how _putenv_s removes a variable.
+//
+// Note that the Windows CRT only understands the "EST5EDT" form of TZ, not the
+// IANA names used below, so it ignores them - which leaves these tests asserting
+// the same thing trivially rather than failing. The timezone dependency they
+// guard against was a Linux/ARM one, and there they still bite.
+inline auto SetTimezone(const char* tz) -> void {
+#if defined(_WIN32)
+    _putenv_s("TZ", tz != nullptr ? tz : "");
+    _tzset();
+#else
+    if (tz != nullptr) {
+        setenv("TZ", tz, 1);
+    } else {
+        unsetenv("TZ");
+    }
+    tzset();
+#endif
+}
+
 class ScopedTimezone {
    public:
     explicit ScopedTimezone(const char* tz) {
@@ -35,17 +60,9 @@ class ScopedTimezone {
         if (m_hadTz) {
             m_previous = previous;
         }
-        setenv("TZ", tz, 1);
-        tzset();
+        SetTimezone(tz);
     }
-    ~ScopedTimezone() {
-        if (m_hadTz) {
-            setenv("TZ", m_previous.c_str(), 1);
-        } else {
-            unsetenv("TZ");
-        }
-        tzset();
-    }
+    ~ScopedTimezone() { SetTimezone(m_hadTz ? m_previous.c_str() : nullptr); }
 
    private:
     bool m_hadTz = false;

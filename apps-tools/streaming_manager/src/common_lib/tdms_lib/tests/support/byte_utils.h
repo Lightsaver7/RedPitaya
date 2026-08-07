@@ -14,10 +14,26 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#if defined(_WIN32)
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "spec_builder.h"
 
 namespace tdms_test {
+
+// getpid() is POSIX and absent from the MinGW runtime, which builds this tree
+// for Windows; _getpid() in <process.h> is the equivalent there. The id only has
+// to make the scratch directory unique between concurrent runs of the binary.
+inline auto CurrentProcessId() -> long {
+#if defined(_WIN32)
+    return static_cast<long>(_getpid());
+#else
+    return static_cast<long>(::getpid());
+#endif
+}
 
 inline auto HexDump(const Bytes& bytes) -> std::string {
     static const char* digits = "0123456789ABCDEF";
@@ -71,7 +87,7 @@ inline auto EmptyStream() -> std::stringstream {
 class TempFile {
    public:
     explicit TempFile(const std::string& name) {
-        m_dir = std::filesystem::temp_directory_path() / ("tdms_test_" + std::to_string(++s_counter) + "_" + std::to_string(::getpid()));
+        m_dir = std::filesystem::temp_directory_path() / ("tdms_test_" + std::to_string(++s_counter) + "_" + std::to_string(CurrentProcessId()));
         std::filesystem::create_directories(m_dir);
         m_path = (m_dir / name).string();
     }
