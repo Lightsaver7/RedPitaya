@@ -341,9 +341,9 @@ then
   fpga loadb ${zynq} $addr_fpga $filesize
 fi
 
-echo Set devicetree and ramdisk high loading address to ${high}
+echo Set ramdisk high loading address to ${high}
 
-setenv fdt_high    ${high}
+setenv fdt_high    0x02000000
 setenv initrd_high ${high}
 
 # set additional Linux kernel boot parameters, mostly debug options
