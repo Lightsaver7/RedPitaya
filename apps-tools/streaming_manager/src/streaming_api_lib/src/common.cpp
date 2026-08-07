@@ -259,7 +259,7 @@ auto requestStopStreamingCommon(std::shared_ptr<ConfigStreamClient> cl, std::lis
 
     class LocalCb : public ConfigCallback {
 
-        void configError([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host, int error) override {
+        void configError([[maybe_unused]] ConfigStreamClient* cl, [[maybe_unused]] std::string host, [[maybe_unused]] int error) override {
             const std::lock_guard lock(g_rmutex);
             (*m_rstop_counter)--;
             m_masterHosts->remove(host);

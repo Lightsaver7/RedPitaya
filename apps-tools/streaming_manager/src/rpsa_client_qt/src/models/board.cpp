@@ -561,7 +561,7 @@ auto CBoard::configManagerConnected(std::string host) -> void {
     getConfig();
 }
 
-auto CBoard::configMangerError(ClientNetConfigManager::Errors errors, std::string host, error_code err) -> void {
+auto CBoard::configMangerError(ClientNetConfigManager::Errors errors, std::string host, std::error_code err) -> void {
     QString msg = "Error from configuratoin server: " + QString::fromStdString(err.message());
     addLog(msg);
     Q_EMIT configManagerConnectedChanged();

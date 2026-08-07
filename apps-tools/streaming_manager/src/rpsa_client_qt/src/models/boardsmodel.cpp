@@ -39,7 +39,7 @@ auto BoardsModel::data(const QModelIndex& index, int role) const -> QVariant {
 //auto BoardsModel::removeRows(int position, int rows, const QModelIndex &parent)  -> bool{
 //}
 
-auto BoardsModel::rowCount(const QModelIndex& parent) const -> int {
+auto BoardsModel::rowCount(const QModelIndex&) const -> int {
     return m_boards.size();
 }
 

@@ -122,7 +122,7 @@ class CBoard : public QObject {
 
     auto updateOffline() -> void;
     auto configManagerConnected(std::string host) -> void;
-    auto configMangerError(ClientNetConfigManager::Errors errors, std::string host, error_code err) -> void;
+    auto configMangerError(ClientNetConfigManager::Errors errors, std::string host, std::error_code err) -> void;
     auto getNewSettings(std::string host) -> void;
     auto sendSettings(std::string host) -> void;
     auto addLog(QString msg) -> void;

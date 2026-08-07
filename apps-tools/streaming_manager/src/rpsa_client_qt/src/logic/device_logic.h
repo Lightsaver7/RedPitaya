@@ -14,7 +14,7 @@ class DeviceLogic : public QObject {
    private:
     DeviceLogic();
     ~DeviceLogic();
-    Q_DISABLE_COPY_MOVE(DeviceLogic);
+    Q_DISABLE_COPY_MOVE(DeviceLogic)
 
     QTimer* m_timer;
     ClientNetConfigManager* m_client;
