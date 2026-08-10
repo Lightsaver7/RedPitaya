@@ -13,7 +13,9 @@
 
 namespace {
 
-std::string g_dirPath = {FILE_PATH};
+inline constexpr std::string_view FILE_PATH = "/home/redpitaya/streaming_files/dac";
+
+thread_local std::string g_dirPath = {FILE_PATH};
 
 auto to_uint64(char const* s) -> uint64_t {
     if (s == NULL || *s == '\0')
@@ -779,15 +781,16 @@ auto CStreamSettings::setDACDirPath(std::string& _path) -> void {
 
 auto CStreamSettings::getDACDirPath() -> std::string {
 #ifdef RP_PLATFORM
-    if (g_dirPath == "") {
-        if (!std::filesystem::exists(FILE_PATH)) {
-            std::filesystem::create_directories(FILE_PATH);
-        }
-        return FILE_PATH;
+    if (g_dirPath.empty()) {
+        g_dirPath = FILE_PATH;
     }
-    if (!std::filesystem::exists(g_dirPath)) {
-        std::filesystem::create_directories(g_dirPath);
+
+    std::error_code ec;
+    std::filesystem::create_directories(g_dirPath, ec);
+    if (ec) {
+        return FILE_PATH; 
     }
+
     return g_dirPath;
 #else
     return ".";
