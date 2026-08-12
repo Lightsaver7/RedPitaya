@@ -13,9 +13,7 @@
 
 namespace {
 
-inline constexpr std::string_view FILE_PATH = "/home/redpitaya/streaming_files/dac";
-
-thread_local std::string g_dirPath = {FILE_PATH};
+thread_local std::string g_dirPath = FILE_PATH;
 
 auto to_uint64(char const* s) -> uint64_t {
     if (s == NULL || *s == '\0')
