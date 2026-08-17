@@ -11,6 +11,8 @@ Both images are designed for headless usage in CI/CD pipelines for FPGA synthesi
 
 !!! Difference between normal Vivado and Jenkins agent + Vivado image.
 
+<br/>
+
 ---
 
 ## File Structure
@@ -22,6 +24,8 @@ Both images are designed for headless usage in CI/CD pipelines for FPGA synthesi
 | `install_config.txt` | Vivado installation configuration |
 | `jenkins-agent-setup.sh` | Jenkins agent startup script |
 
+<br/>
+
 ---
 
 ## Requirements
@@ -32,6 +36,8 @@ To build the full image approximately 600 GB of space is required on the compute
 - Around 450 GB is required for building the Docker image.
 
 Once the build is finished, the temporary files can be deleted. This will bring the image size down to about 150 GB.
+
+<br/>
 
 ---
 
