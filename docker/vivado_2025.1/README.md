@@ -1,15 +1,9 @@
-# Documentation: Docker Image for Vivado and Vivado Jenkins Agent
+# Documentation: Docker Image for Vivado
 
 ## Overview
 
-This project provides two Docker images:
-
-- `vivado-jenkins-agent:2025.1` for running a Jenkins agent with AMD Vitis Unified Software Platform (Vivado) installed. 
-- `vivado:2025.1` for only running AMD Vitis Unified Software Platform (Vivado).
-
-Both images are designed for headless usage in CI/CD pipelines for FPGA synthesis and development.
-
-!!! Difference between normal Vivado and Jenkins agent + Vivado image.
+This project provides a Docker image `vivado:2025.1` for running AMD Vitis Unified Software Platform (Vivado).
+The image is designed for headless usage in CI/CD pipelines for FPGA synthesis and development.
 
 <br/>
 
@@ -20,9 +14,10 @@ Both images are designed for headless usage in CI/CD pipelines for FPGA synthesi
 | File | Purpose |
 |------|---------|
 | `Dockerfile.vivado` | Multi-stage Vivado image build |
-| `Dockerfile.jenkins` | Multi-stage Jenkins image build |
 | `install_config.txt` | Vivado installation configuration |
-| `jenkins-agent-setup.sh` | Jenkins agent startup script |
+
+<!-- | `Dockerfile.jenkins` | Multi-stage Jenkins image build | 
+| `jenkins-agent-setup.sh` | Jenkins agent startup script | -->
 
 <br/>
 
@@ -105,7 +100,7 @@ ls -la vivado_installer/xsetup
 
 Ensure all files are in the same directory.
 
-For Jenkins build, please ensure the following:
+<!-- For Jenkins build, please ensure the following:
 
 ```bash
 ls -la
@@ -117,6 +112,7 @@ ls -la
 ```
 
 For Vivado build, please ensure the following:
+-->
 
 ```bash
 ls -la
@@ -213,6 +209,7 @@ The current configuration installs only:
 
 <br/>
 
+<!--
 ### Jenkins Agent Script
 
 #### `jenkins-agent-setup.sh` — Functionality
@@ -231,6 +228,7 @@ The current configuration installs only:
 | `JENKINS_AGENT_NAME` | Agent name | Yes (for agent mode) |
 
 <br/>
+-->
 
 ### Dockerfile: Build Details
 
@@ -334,6 +332,7 @@ docker history vivado:2025.1
 
 ---
 
+<!--
 ## Automated Build Script
 
 This is specifically for the full Jenkins Build. 
@@ -641,6 +640,7 @@ spec:
 <br/>
 
 ---
+-->
 
 ## Troubleshooting
 
@@ -663,7 +663,7 @@ docker run -e LANG=en_US.UTF-8 -e LC_ALL=en_US.UTF-8 ...
 **Solution**: Check for links:
 
 ```bash
-docker run --rm vivado-jenkins-agent:2025.1 ls -la /lib/x86_64-linux-gnu/libtinfo.so*
+docker run --rm vivado:2025.1 ls -la /lib/x86_64-linux-gnu/libtinfo.so*
 ```
 
 <br/>
@@ -702,11 +702,12 @@ vivado -mode tcl -source script.tcl
 
 ```bash
 docker run --memory="16g" --memory-swap="16g" \
-  vivado-jenkins-agent:2025.1
+  vivado:2025.1
 ```
 
 <br/>
 
+<!--
 ### Jenkins agent fails to connect
 
 **Solution**: Check environment variables and network connectivity:
@@ -718,6 +719,7 @@ docker run --rm vivado-jenkins-agent:2025.1 \
 ```
 
 <br/>
+-->
 
 ### TAR archive is too large
 
@@ -725,7 +727,7 @@ docker run --rm vivado-jenkins-agent:2025.1 \
 
 ```bash
 docker system prune -a
-docker save vivado-jenkins-agent:2025.1 | gzip -9 > image.tar.gz
+docker save vivado:2025.1 | gzip -9 > image.tar.gz
 ```
 
 <br/>
@@ -734,7 +736,7 @@ docker save vivado-jenkins-agent:2025.1 | gzip -9 > image.tar.gz
 
 ```bash
 # Check that no mounts exist in the final image
-docker run --rm vivado-jenkins-agent:2025.1 mount | grep /tmp
+docker run --rm vivado:2025.1 mount | grep /tmp
 # Should be empty
 ```
 
@@ -750,7 +752,6 @@ docker run --rm vivado-jenkins-agent:2025.1 mount | grep /tmp
 | Build with BuildKit | `DOCKER_BUILDKIT=1 docker build -t vivado:2025.1 .` |
 | Export to TAR.GZ | `docker save vivado:2025.1 \| gzip > vivado-2025.1.tar.gz` |
 | Load from TAR.GZ | `gunzip -c vivado-2025.1.tar.gz \| docker load` |
-| Run Jenkins agent | `docker run -d -e JENKINS_URL=... -e JENKINS_SECRET=... vivado-jenkins-agent:2025.1` |
 | Interactive run | `docker run -it vivado:2025.1` |
 | Interactive run with locale | `docker run -it -e LANG=en_US.UTF-8 -e LC_ALL=en_US.UTF-8 vivado:2025.1` |
 | View logs | `docker logs <container-id>` |
@@ -759,3 +760,7 @@ docker run --rm vivado-jenkins-agent:2025.1 mount | grep /tmp
 | Remove image | `docker rmi vivado:2025.1` |
 | Check locale | `docker run --rm vivado:2025.1 locale` |
 | Check Vivado | `docker run --rm vivado-:2025.1 vivado -version` |
+
+<!--
+| Run Jenkins agent | `docker run -d -e JENKINS_URL=... -e JENKINS_SECRET=... vivado-jenkins-agent:2025.1` |
+-->
